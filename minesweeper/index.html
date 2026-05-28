@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D扫雷 - Three.js</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --panel-bg: rgba(20, 20, 40, 0.9);
+            --text: #e0e0e0;
+            --accent: #ff6b6b;
+            --gold: #f0c040;
+            --success: #4ecdc4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            overflow: hidden;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            height: 100vh;
+            width: 100vw;
+            touch-action: manipulation;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* 顶部UI面板 */
+        #ui-panel {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 14px 28px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #ui-panel .stat {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--text);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        #ui-panel .stat .icon {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+
+        #ui-panel .stat .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            min-width: 32px;
+            text-align: center;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+        }
+
+        #mine-count .value {
+            color: var(--accent) !important;
+        }
+        #timer .value {
+            color: var(--gold) !important;
+        }
+
+        #btn-reset {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        #btn-reset:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #fff;
+            transform: rotate(180deg);
+        }
+        #btn-reset:active {
+            transform: rotate(360deg) scale(0.9);
+            transition: transform 0.15s ease;
+        }
+
+        /* 底部提示 */
+        #hint-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 30px;
+            padding: 10px 24px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #aaa;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        #hint-bar span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #hint-bar .key-icon {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 弹窗 */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        #overlay.show {
+            display: flex;
+        }
+        #overlay .dialog {
+            background: var(--panel-bg);
+            border-radius: 24px;
+            padding: 40px 36px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes popIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        #overlay .dialog h2 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        #overlay .dialog .subtitle {
+            color: #aaa;
+            margin-bottom: 24px;
+            font-size: 1rem;
+        }
+        #overlay .dialog button {
+            padding: 12px 36px;
+            border-radius: 30px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            background: #fff;
+            color: #1a1a2e;
+        }
+        #overlay .dialog button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3);
+        }
+        #overlay.win h2 {
+            color: var(--success);
+        }
+        #overlay.lose h2 {
+            color: var(--accent);
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            #ui-panel {
+                gap: 12px;
+                padding: 10px 18px;
+                border-radius: 16px;
+                top: 10px;
+            }
+            #ui-panel .stat {
+                font-size: 0.9rem;
+                gap: 4px;
+            }
+            #ui-panel .stat .value {
+                font-size: 1.3rem;
+                min-width: 24px;
+            }
+            #btn-reset {
+                width: 36px;
+                height: 36px;
+                font-size: 1.2rem;
+            }
+            #hint-bar {
+                bottom: 12px;
+                padding: 8px 16px;
+                font-size: 0.7rem;
+                gap: 10px;
+                border-radius: 20px;
+            }
+            #hint-bar .key-icon {
+                padding: 2px 6px;
+                font-size: 0.65rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- 顶部面板 -->
+    <div id="ui-panel">
+        <div class="stat" id="mine-count">
+            <span class="icon">💣</span>
+            <span class="value" id="mine-remaining">15</span>
+        </div>
+        <button id="btn-reset" title="重新开始">↻</button>
+        <div class="stat" id="timer">
+            <span class="icon">⏱</span>
+            <span class="value" id="time-display">000</span>
+        </div>
+    </div>
+
+    <!-- 底部提示 -->
+    <div id="hint-bar">
+        <span><span class="key-icon">左键</span> 揭开</span>
+        <span><span class="key-icon">右键</span> 标记旗帜</span>
+        <span><span class="key-icon">拖拽</span> 旋转视角</span>
+        <span><span class="key-icon">滚轮</span> 缩放</span>
+    </div>
+
+    <!-- 弹窗 -->
+    <div id="overlay">
+        <div class="dialog">
+            <h2 id="overlay-title"></h2>
+            <p class="subtitle" id="overlay-subtitle"></p>
+            <button id="overlay-btn">重新开始</button>
+        </div>
+    </div>
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ==================== DOM元素 ====================
+        const container = document.getElementById('canvas-container');
+        const mineRemainingEl = document.getElementById('mine-remaining');
+        const timeDisplayEl = document.getElementById('time-display');
+        const btnReset = document.getElementById('btn-reset');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlaySubtitle = document.getElementById('overlay-subtitle');
+        const overlayBtn = document.getElementById('overlay-btn');
+
+        // ==================== 游戏常量 ====================
+        const GRID_SIZE = 10;
+        const TOTAL_MINES = 15;
+        const CELL_SIZE = 1.0;
+        const COVER_HEIGHT = 0.38;
+        const COVER_GAP = 0.06;
+        const BOARD_OFFSET = (GRID_SIZE - 1) * CELL_SIZE / 2;
+
+        // ==================== 游戏状态 ====================
+        let gameState = {
+            grid: [], // grid[row][col] = { mine, revealed, flagged, neighborCount }
+            coverMeshes: {}, // key: "row,col" -> THREE.Mesh
+            flagSprites: {}, // key: "row,col" -> THREE.Sprite
+            markerObjects: {}, // key: "row,col" -> THREE.Object3D (mine sphere or number sprite)
+            minesPlaced: false,
+            gameOver: false,
+            gameWon: false,
+            revealedCount: 0,
+            flagCount: 0,
+            timerSeconds: 0,
+            timerInterval: null,
+            firstClickDone: false,
+        };
+
+        // 与其他游戏状态变量放在一起（例如在 gameState 声明下方）
+        let highlightedNeighbors = []; // 存储当前高亮的 cover mesh 和它的原始材质
+
+        // ==================== Three.js 初始化 ====================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#1a1a2e');
+        scene.fog = new THREE.Fog('#1a1a2e', 15, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        container.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 60);
+        camera.position.set(9, 8.5, 9);
+        camera.lookAt(0, -1, 0);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, -0.5, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 5;
+        controls.maxDistance = 20;
+        controls.maxPolarAngle = Math.PI * 0.55;
+        controls.minPolarAngle = Math.PI * 0.15;
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: null, // 右键留给旗帜标记
+        };
+        controls.touches = {
+            ONE: THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN,
+        };
+        controls.update();
+
+        // ==================== 光照 ====================
+        // 环境光
+        const ambientLight = new THREE.AmbientLight('#8899bb', 1.8);
+        scene.add(ambientLight);
+
+        // 半球光 - 天空/地面
+        const hemiLight = new THREE.HemisphereLight('#c8d6e5', '#3d4a5c', 1.0);
+        scene.add(hemiLight);
+
+        // 主方向光（带阴影）
+        const sunLight = new THREE.DirectionalLight('#ffffff', 4.5);
+        sunLight.position.set(12, 18, 6);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 60;
+        sunLight.shadow.camera.left = -15;
+        sunLight.shadow.camera.right = 15;
+        sunLight.shadow.camera.top = 15;
+        sunLight.shadow.camera.bottom = -15;
+        sunLight.shadow.bias = -0.0003;
+        sunLight.shadow.normalBias = 0.02;
+        scene.add(sunLight);
+
+        // 补充点光源
+        const pointLight = new THREE.PointLight('#ffd6a0', 3, 18, 1.5);
+        pointLight.position.set(-4, 6, -3);
+        scene.add(pointLight);
+
+        // ==================== 场景对象组 ====================
+        const boardGroup = new THREE.Group();
+        const coversGroup = new THREE.Group();
+        const markersGroup = new THREE.Group();
+        const flagsGroup = new THREE.Group();
+        scene.add(boardGroup);
+        scene.add(coversGroup);
+        scene.add(markersGroup);
+        scene.add(flagsGroup);
+
+        // ==================== 材质工厂 ====================
+        const coverMaterialDefault = new THREE.MeshStandardMaterial({
+            color: '#bcc9d4',
+            roughness: 0.35,
+            metalness: 0.05,
+        });
+        const coverMaterialHover = new THREE.MeshStandardMaterial({
+            color: '#d5e1ed',
+            roughness: 0.3,
+            metalness: 0.08,
+            emissive: '#334455',
+            emissiveIntensity: 0.25,
+        });
+        const coverMaterialRevealed = new THREE.MeshStandardMaterial({
+            color: '#8a9aaa',
+            roughness: 0.5,
+            metalness: 0.02,
+            transparent: true,
+            opacity: 0.35,
+        });
+
+        const basePlateMaterial = new THREE.MeshStandardMaterial({
+            color: '#3b4d5c',
+            roughness: 0.55,
+            metalness: 0.15,
+        });
+        const basePlateRevealedMaterial = new THREE.MeshStandardMaterial({
+            color: '#4a5e6e',
+            roughness: 0.5,
+            metalness: 0.1,
+        });
+
+        // ==================== 创建底板 ====================
+        function createBasePlate() {
+            // 清除旧底板
+            while (boardGroup.children.length > 0) {
+                boardGroup.remove(boardGroup.children[0]);
+            }
+
+            // 大底板
+            const plateGeo = new THREE.BoxGeometry(GRID_SIZE * CELL_SIZE + 0.3, 0.12, GRID_SIZE * CELL_SIZE + 0.3);
+            const plate = new THREE.Mesh(plateGeo, basePlateMaterial);
+            plate.position.y = -0.06;
+            plate.receiveShadow = true;
+            plate.castShadow = true;
+            boardGroup.add(plate);
+
+            // 网格线 - 在底板上绘制凹槽
+            const grooveDepth = 0.02;
+            const grooveWidth = 0.03;
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                const pos = i * CELL_SIZE - BOARD_OFFSET - CELL_SIZE / 2;
+                // X方向线条
+                const lineXGeo = new THREE.BoxGeometry(GRID_SIZE * CELL_SIZE - COVER_GAP, grooveDepth, grooveWidth);
+                const lineX = new THREE.Mesh(lineXGeo, new THREE.MeshStandardMaterial({
+                    color: '#2a3745',
+                    roughness: 0.7,
+                    metalness: 0,
+                }));
+                lineX.position.set(0, 0.06, pos);
+                lineX.receiveShadow = true;
+                boardGroup.add(lineX);
+
+                // Z方向线条
+                const lineZGeo = new THREE.BoxGeometry(grooveWidth, grooveDepth, GRID_SIZE * CELL_SIZE - COVER_GAP);
+                const lineZ = new THREE.Mesh(lineZGeo, new THREE.MeshStandardMaterial({
+                    color: '#2a3745',
+                    roughness: 0.7,
+                    metalness: 0,
+                }));
+                lineZ.position.set(pos, 0.06, 0);
+                lineZ.receiveShadow = true;
+                boardGroup.add(lineZ);
+            }
+
+            // 底板上的小装饰边框
+            const borderGeo = new THREE.TorusGeometry(GRID_SIZE * CELL_SIZE / 2 + 0.1, 0.04, 8, 4);
+            const border = new THREE.Mesh(borderGeo, new THREE.MeshStandardMaterial({
+                color: '#5a6d7e',
+                roughness: 0.3,
+                metalness: 0.6,
+            }));
+            border.rotation.x = -Math.PI / 2;
+            border.position.y = 0.07;
+            border.receiveShadow = true;
+            boardGroup.add(border);
+
+            // 四个角的小球装饰
+            const cornerR = GRID_SIZE * CELL_SIZE / 2;
+            const cornerGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            const cornerMat = new THREE.MeshStandardMaterial({
+                color: '#e8c860',
+                roughness: 0.2,
+                metalness: 0.8,
+                emissive: '#553300',
+                emissiveIntensity: 0.3,
+            });
+            [
+                [-1, -1],
+                [1, -1],
+                [-1, 1],
+                [1, 1]
+            ].forEach(([sx, sz]) => {
+                const corner = new THREE.Mesh(cornerGeo, cornerMat);
+                corner.position.set(sx * cornerR, 0.08, sz * cornerR);
+                corner.castShadow = true;
+                boardGroup.add(corner);
+            });
+        }
+
+        // ==================== 粒子效果 ====================
+        function spawnParticles(position, color, count = 40) {
+            const particlesGroup = new THREE.Group();
+            const particleGeo = new THREE.SphereGeometry(0.04, 6, 6);
+            const particleMat = new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.3,
+                metalness: 0.1,
+                emissive: color,
+                emissiveIntensity: 0.8,
+            });
+
+            for (let i = 0; i < count; i++) {
+                const particle = new THREE.Mesh(particleGeo, particleMat);
+                particle.position.copy(position);
+                particle.userData = {
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 4,
+                        Math.random() * 5 + 2,
+                        (Math.random() - 0.5) * 4
+                    ),
+                    life: 1.0,
+                    decay: 0.015 + Math.random() * 0.04,
+                };
+                particle.castShadow = false;
+                particlesGroup.add(particle);
+            }
+
+            scene.add(particlesGroup);
+            return particlesGroup;
+        }
+
+        const activeParticles = [];
+
+        function updateParticles(deltaTime) {
+            for (let p = activeParticles.length - 1; p >= 0; p--) {
+                const group = activeParticles[p];
+                let allDead = true;
+                for (const child of group.children) {
+                    if (child.userData.life > 0) {
+                        allDead = false;
+                        child.userData.velocity.y += -9.8 * deltaTime;
+                        child.position.x += child.userData.velocity.x * deltaTime;
+                        child.position.y += child.userData.velocity.y * deltaTime;
+                        child.position.z += child.userData.velocity.z * deltaTime;
+                        child.userData.life -= child.userData.decay;
+                        child.material.opacity = Math.max(0, child.userData.life);
+                        child.material.transparent = true;
+                        child.scale.setScalar(Math.max(0.1, child.userData.life));
+                    }
+                }
+                if (allDead) {
+                    scene.remove(group);
+                    group.children.forEach(c => {
+                        if (c.material) c.material.dispose();
+                        if (c.geometry) c.geometry.dispose();
+                    });
+                    activeParticles.splice(p, 1);
+                }
+            }
+        }
+
+        // ==================== Canvas纹理生成 ====================
+        function createNumberTexture(number) {
+            const size = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // 透明背景
+            ctx.clearRect(0, 0, size, size);
+
+            // 数字颜色映射
+            const colors = {
+                1: '#3b7dd8',
+                2: '#4caf50',
+                3: '#f44336',
+                4: '#7c3aed',
+                5: '#b71c1c',
+                6: '#00897b',
+                7: '#1a1a1a',
+                8: '#6d6d6d',
+            };
+
+            const color = colors[number] || '#ffffff';
+            const fontSize = 90;
+            ctx.fillStyle = color;
+            ctx.font = `bold ${fontSize}px "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 轻微阴影
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.fillText(number.toString(), size / 2, size / 2);
+
+            // 再画一层更清晰的
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.fillText(number.toString(), size / 2, size / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            texture.colorSpace = THREE.SRGBColorSpace;
+            return texture;
+        }
+
+        function createFlagTexture() {
+            const size = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, size, size);
+
+            // 旗杆
+            ctx.fillStyle = '#555';
+            ctx.fillRect(50, 20, 6, 90);
+
+            // 旗帜
+            ctx.fillStyle = '#e53935';
+            ctx.beginPath();
+            ctx.moveTo(56, 24);
+            ctx.lineTo(105, 42);
+            ctx.lineTo(56, 62);
+            ctx.closePath();
+            ctx.fill();
+
+            // 旗帜高光
+            ctx.fillStyle = '#ff6b6b';
+            ctx.beginPath();
+            ctx.moveTo(56, 24);
+            ctx.lineTo(90, 38);
+            ctx.lineTo(56, 42);
+            ctx.closePath();
+            ctx.fill();
+
+            // 阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath();
+            ctx.moveTo(56, 62);
+            ctx.lineTo(105, 42);
+            ctx.lineTo(100, 48);
+            ctx.lineTo(56, 68);
+            ctx.closePath();
+            ctx.fill();
+
+            // 顶部小球
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath();
+            ctx.arc(53, 18, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#c49000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = true;
+            texture.colorSpace = THREE.SRGBColorSpace;
+            return texture;
+        }
+
+        // 预生成数字纹理
+        const numberTextures = {};
+        for (let n = 1; n <= 8; n++) {
+            numberTextures[n] = createNumberTexture(n);
+        }
+        const flagTexture = createFlagTexture();
+
+        // ==================== 创建3D对象 ====================
+        function getCellCenter(row, col) {
+            return {
+                x: col * CELL_SIZE - BOARD_OFFSET,
+                z: row * CELL_SIZE - BOARD_OFFSET,
+            };
+        }
+
+        function createCoverMesh(row, col) {
+            const { x, z } = getCellCenter(row, col);
+            const coverSize = CELL_SIZE - COVER_GAP;
+            const geo = new THREE.BoxGeometry(coverSize, COVER_HEIGHT, coverSize, 2, 1, 2);
+
+            // 给cover顶部加一点圆角效果 - 使用边缘线
+            const mesh = new THREE.Mesh(geo, coverMaterialDefault.clone());
+            mesh.position.set(x, COVER_HEIGHT / 2, z);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.name = `cover-${row}-${col}`;
+            mesh.userData = { row, col, isCover: true };
+
+            // 顶部细微边框
+            const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(coverSize - 0.04, 0.06, coverSize - 0.04));
+            const edgeLine = new THREE.LineSegments(edgeGeo,
+                new THREE.LineBasicMaterial({ color: '#dde4ec', transparent: true, opacity: 0.6 }));
+            edgeLine.position.y = COVER_HEIGHT / 2 - 0.03;
+            mesh.add(edgeLine);
+
+            return mesh;
+        }
+
+        function createMineMarker(row, col) {
+            const { x, z } = getCellCenter(row, col);
+            const group = new THREE.Group();
+            group.position.set(x, 0.16, z);
+            group.visible = false;
+            group.name = `marker-${row}-${col}`;
+
+            // 主体球
+            const bodyGeo = new THREE.IcosahedronGeometry(0.2, 1);
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: '#2a2a2a',
+                roughness: 0.25,
+                metalness: 0.7,
+                emissive: '#1a0000',
+                emissiveIntensity: 0.4,
+            });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            group.add(body);
+
+            // 红色发光核心
+            const coreGeo = new THREE.SphereGeometry(0.1, 16, 16);
+            const coreMat = new THREE.MeshStandardMaterial({
+                color: '#ff2020',
+                roughness: 0.2,
+                metalness: 0.1,
+                emissive: '#ff0000',
+                emissiveIntensity: 1.5,
+            });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            group.add(core);
+
+            // 尖刺
+            const spikeGeo = new THREE.ConeGeometry(0.04, 0.14, 6, 6);
+            const spikeMat = new THREE.MeshStandardMaterial({
+                color: '#444',
+                roughness: 0.3,
+                metalness: 0.8,
+            });
+            const spikeDirections = [
+                [0, 1, 0],
+                [0.7, 0.7, 0],
+                [-0.7, 0.7, 0],
+                [0, 0.7, 0.7],
+                [0, 0.7, -0.7],
+                [0.5, 0.7, 0.5],
+                [-0.5, 0.7, 0.5],
+                [0.5, 0.7, -0.5],
+                [-0.5, 0.7, -0.5],
+            ];
+            spikeDirections.forEach(dir => {
+                const spike = new THREE.Mesh(spikeGeo, spikeMat);
+                spike.position.set(dir[0] * 0.18, 0.1 + dir[1] * 0.18, dir[2] * 0.18);
+                spike.lookAt(new THREE.Vector3(
+                    spike.position.x + dir[0],
+                    spike.position.y + dir[1],
+                    spike.position.z + dir[2]
+                ));
+                spike.rotateX(Math.PI / 2);
+                spike.castShadow = true;
+                group.add(spike);
+            });
+
+            return group;
+        }
+
+        function createNumberMarker(row, col, number) {
+            const { x, z } = getCellCenter(row, col);
+            const spriteMat = new THREE.SpriteMaterial({
+                map: numberTextures[number],
+                transparent: true,
+                depthTest: true,
+                depthWrite: true,
+            });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(x, 0.18, z);
+            sprite.scale.set(0.6, 0.6, 1);
+            sprite.visible = false;
+            sprite.name = `marker-${row}-${col}`;
+            sprite.userData = { row, col, number };
+            return sprite;
+        }
+
+        function createFlagSprite(row, col) {
+            const { x, z } = getCellCenter(row, col);
+            const spriteMat = new THREE.SpriteMaterial({
+                map: flagTexture,
+                transparent: true,
+                depthTest: true,
+                depthWrite: true,
+            });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.position.set(x, COVER_HEIGHT + 0.25, z);
+            sprite.scale.set(0.5, 0.5, 1);
+            sprite.visible = false;
+            sprite.name = `flag-${row}-${col}`;
+            sprite.userData = { row, col, isFlag: true };
+            return sprite;
+        }
+
+        // ==================== 游戏逻辑 ====================
+        function initGameGrid() {
+            gameState.grid = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                gameState.grid[row] = [];
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    gameState.grid[row][col] = {
+                        mine: false,
+                        revealed: false,
+                        flagged: false,
+                        neighborCount: 0,
+                    };
+                }
+            }
+            gameState.minesPlaced = false;
+            gameState.gameOver = false;
+            gameState.gameWon = false;
+            gameState.revealedCount = 0;
+            gameState.flagCount = 0;
+            gameState.firstClickDone = false;
+            gameState.timerSeconds = 0;
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = null;
+            updateUI();
+        }
+
+        function placeMines(excludeRow, excludeCol) {
+            const excludeSet = new Set();
+            // 排除点击位置及其周围
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const r = excludeRow + dr;
+                    const c = excludeCol + dc;
+                    if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                        excludeSet.add(`${r},${c}`);
+                    }
+                }
+            }
+
+            const candidates = [];
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (!excludeSet.has(`${row},${col}`)) {
+                        candidates.push({ row, col });
+                    }
+                }
+            }
+
+            // Fisher-Yates洗牌
+            for (let i = candidates.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+            }
+
+            const mineCount = Math.min(TOTAL_MINES, candidates.length);
+            for (let i = 0; i < mineCount; i++) {
+                const { row, col } = candidates[i];
+                gameState.grid[row][col].mine = true;
+            }
+
+            // 计算邻居地雷数
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (!gameState.grid[row][col].mine) {
+                        let count = 0;
+                        forEachNeighbor(row, col, (r, c) => {
+                            if (gameState.grid[r][c].mine) count++;
+                        });
+                        gameState.grid[row][col].neighborCount = count;
+                    }
+                }
+            }
+
+            gameState.minesPlaced = true;
+        }
+
+        function forEachNeighbor(row, col, callback) {
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const r = row + dr;
+                    const c = col + dc;
+                    if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE) {
+                        callback(r, c);
+                    }
+                }
+            }
+        }
+
+        function revealCell(row, col) {
+            if (gameState.gameOver || gameState.gameWon) return;
+            if (gameState.grid[row][col].revealed) return;
+            if (gameState.grid[row][col].flagged) return;
+
+            // 第一次点击时放置地雷并启动计时
+            if (!gameState.minesPlaced) {
+                placeMines(row, col);
+                startTimer();
+                gameState.firstClickDone = true;
+            }
+            if (!gameState.firstClickDone) {
+                startTimer();
+                gameState.firstClickDone = true;
+            }
+
+            const cell = gameState.grid[row][col];
+            cell.revealed = true;
+            gameState.revealedCount++;
+
+            // 移除覆盖方块
+            removeCover(row, col);
+
+            const key = `${row},${col}`;
+            // 隐藏该格预存的地雷模型（因为可能是数字或空白）
+            const mineMarker = gameState.markerObjects[key];
+            if (mineMarker) {
+                mineMarker.visible = false;
+            }
+
+            if (cell.mine) {
+                // 踩中地雷：显示地雷模型并结束游戏
+                if (mineMarker) {
+                    mineMarker.visible = true;
+                    // 地雷弹出动画
+                    mineMarker.scale.set(0.01, 0.01, 0.01);
+                    const startTime = performance.now();
+                    const duration = 300;
+                    function animateMineAppear(time) {
+                        const elapsed = time - startTime;
+                        const progress = Math.min(elapsed / duration, 1.0);
+                        const c1 = 1.70158;
+                        const c3 = c1 + 1;
+                        const t = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+                        const s = Math.max(0.01, t);
+                        mineMarker.scale.setScalar(s);
+                        if (progress < 1) {
+                            requestAnimationFrame(animateMineAppear);
+                        }
+                    }
+                    requestAnimationFrame(animateMineAppear);
+                }
+                triggerGameOver(row, col);
+                return;
+            } else if (cell.neighborCount > 0) {
+                // 数字格：创建数字 Sprite 并显示
+                const numberSprite = createNumberMarker(row, col, cell.neighborCount);
+                numberSprite.visible = true;
+                markersGroup.add(numberSprite);
+                // 保存引用以便游戏重置时清理（可选，markersGroup 整体清空时会处理）
+                if (!gameState.dynamicMarkers) gameState.dynamicMarkers = {};
+                gameState.dynamicMarkers[key] = numberSprite;
+            } else {
+                // 空白格：什么都不显示，递归揭开会在 forEachNeighbor 中处理
+            }
+
+            // 如果是空白格，递归揭开相邻格
+            if (cell.neighborCount === 0) {
+                forEachNeighbor(row, col, (r, c) => {
+                    if (!gameState.grid[r][c].revealed && !gameState.grid[r][c].flagged) {
+                        revealCell(r, c);
+                    }
+                });
+            }
+
+            checkWin();
+        }
+
+        function removeCover(row, col) {
+            const key = `${row},${col}`;
+            const mesh = gameState.coverMeshes[key];
+            if (mesh) {
+                // 动画：缩小并下沉
+                const startY = mesh.position.y;
+                const targetY = -0.3;
+                const duration = 250;
+                const startTime = performance.now();
+
+                function animateCoverRemoval(time) {
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1.0);
+                    // easeInQuad
+                    const t = progress * progress;
+                    mesh.position.y = startY + (targetY - startY) * t;
+                    mesh.material.opacity = 1 - t;
+                    mesh.material.transparent = true;
+                    mesh.scale.setScalar(1 - t * 0.5);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animateCoverRemoval);
+                    } else {
+                        // 完全移除
+                        coversGroup.remove(mesh);
+                        if (mesh.material) mesh.material.dispose();
+                        if (mesh.geometry) mesh.geometry.dispose();
+                        delete gameState.coverMeshes[key];
+                    }
+                }
+                requestAnimationFrame(animateCoverRemoval);
+            }
+
+            // 移除旗帜（如果有）
+            const flagSprite = gameState.flagSprites[key];
+            if (flagSprite) {
+                flagsGroup.remove(flagSprite);
+                if (flagSprite.material) {
+                    if (flagSprite.material.map) flagSprite.material.map.dispose();
+                    flagSprite.material.dispose();
+                }
+                delete gameState.flagSprites[key];
+                if (gameState.grid[row][col].flagged) {
+                    gameState.grid[row][col].flagged = false;
+                    gameState.flagCount--;
+                }
+            }
+        }
+
+        function showMarker(row, col, type, number = 0) {
+    const key = `${row},${col}`;
+    const marker = gameState.markerObjects[key];
+    if (!marker) return;
+
+    // 仅处理地雷显示（游戏结束展示用）
+    if (type === 'mine' && marker.userData && marker.userData.isMineGroup) {
+        marker.visible = true;
+        // 简单弹出动画
+        marker.scale.set(0.01, 0.01, 0.01);
+        const startTime = performance.now();
+        const duration = 300;
+        function animateMineAppear(time) {
+            const elapsed = time - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            const c1 = 1.70158;
+            const c3 = c1 + 1;
+            const t = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+            const s = Math.max(0.01, t);
+            marker.scale.setScalar(s);
+            if (progress < 1) {
+                requestAnimationFrame(animateMineAppear);
+            }
+        }
+        requestAnimationFrame(animateMineAppear);
+    }
+    // 不再处理数字和空白，它们已在 revealCell 中直接创建
+}
+
+        function toggleFlag(row, col) {
+            if (gameState.gameOver || gameState.gameWon) return;
+            if (gameState.grid[row][col].revealed) return;
+
+            const key = `${row},${col}`;
+            const cell = gameState.grid[row][col];
+
+            if (cell.flagged) {
+                // 取消标记
+                cell.flagged = false;
+                gameState.flagCount--;
+                const sprite = gameState.flagSprites[key];
+                if (sprite) {
+                    sprite.visible = false;
+                }
+            } else {
+                // 标记旗帜
+                cell.flagged = true;
+                gameState.flagCount++;
+                let sprite = gameState.flagSprites[key];
+                if (!sprite) {
+                    sprite = createFlagSprite(row, col);
+                    gameState.flagSprites[key] = sprite;
+                    flagsGroup.add(sprite);
+                }
+                sprite.visible = true;
+                // 小弹跳动画
+                sprite.scale.set(0.01, 0.01, 1);
+                const startTime = performance.now();
+                const duration = 200;
+                const targetScale = 0.5;
+
+                function animateFlagAppear(time) {
+                    const elapsed = time - startTime;
+                    const progress = Math.min(elapsed / duration, 1.0);
+                    const bounce = 1 - Math.pow(1 - progress, 3);
+                    const s = targetScale * bounce;
+                    sprite.scale.set(s, s, 1);
+                    if (progress < 1) {
+                        requestAnimationFrame(animateFlagAppear);
+                    } else {
+                        sprite.scale.set(targetScale, targetScale, 1);
+                    }
+                }
+                requestAnimationFrame(animateFlagAppear);
+            }
+
+            updateUI();
+        }
+
+        function triggerGameOver(clickedRow, clickedCol) {
+            gameState.gameOver = true;
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = null;
+
+            // 显示所有地雷
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (gameState.grid[row][col].mine) {
+                        if (!gameState.grid[row][col].revealed) {
+                            // 移除cover
+                            const key = `${row},${col}`;
+                            const mesh = gameState.coverMeshes[key];
+                            if (mesh) {
+                                coversGroup.remove(mesh);
+                                if (mesh.material) mesh.material.dispose();
+                                if (mesh.geometry) mesh.geometry.dispose();
+                                delete gameState.coverMeshes[key];
+                            }
+                            // 移除旗帜
+                            const flagSprite = gameState.flagSprites[key];
+                            if (flagSprite) {
+                                flagsGroup.remove(flagSprite);
+                                if (flagSprite.material) {
+                                    if (flagSprite.material.map) flagSprite.material.map.dispose();
+                                    flagSprite.material.dispose();
+                                }
+                                delete gameState.flagSprites[key];
+                            }
+                        }
+                        showMarker(row, col, 'mine');
+                    }
+                    // 显示错误标记
+                    if (gameState.grid[row][col].flagged && !gameState.grid[row][col].mine) {
+                        const key = `${row},${col}`;
+                        const flagSprite = gameState.flagSprites[key];
+                        if (flagSprite && flagSprite.material) {
+                            flagSprite.material.color = new THREE.Color('#ff8888');
+                        }
+                    }
+                }
+            }
+
+            // 粒子效果
+            const { x, z } = getCellCenter(clickedRow, clickedCol);
+            const particles = spawnParticles(new THREE.Vector3(x, 0.2, z), '#ff3030', 60);
+            activeParticles.push(particles);
+
+            // 相机震动
+            triggerCameraShake();
+
+            // 弹窗
+            showOverlay('lose', '💥 游戏结束', '你踩到地雷了！');
+        }
+
+        function checkWin() {
+            const totalCells = GRID_SIZE * GRID_SIZE;
+            if (gameState.revealedCount === totalCells - TOTAL_MINES && !gameState.gameOver) {
+                gameState.gameWon = true;
+                if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+
+                // 自动标记剩余地雷
+                for (let row = 0; row < GRID_SIZE; row++) {
+                    for (let col = 0; col < GRID_SIZE; col++) {
+                        if (gameState.grid[row][col].mine && !gameState.grid[row][col].flagged) {
+                            toggleFlagQuiet(row, col);
+                        }
+                    }
+                }
+                updateUI();
+
+                // 胜利粒子
+                const center = new THREE.Vector3(0, 0.3, 0);
+                const particles = spawnParticles(center, '#ffd700', 80);
+                activeParticles.push(particles);
+
+                showOverlay('win', '🎉 恭喜胜利！', `用时 ${gameState.timerSeconds} 秒`);
+            }
+        }
+
+        function toggleFlagQuiet(row, col) {
+            const key = `${row},${col}`;
+            const cell = gameState.grid[row][col];
+            if (cell.flagged || cell.revealed) return;
+            cell.flagged = true;
+            gameState.flagCount++;
+            let sprite = gameState.flagSprites[key];
+            if (!sprite) {
+                sprite = createFlagSprite(row, col);
+                gameState.flagSprites[key] = sprite;
+                flagsGroup.add(sprite);
+            }
+            sprite.visible = true;
+            sprite.scale.set(0.5, 0.5, 1);
+        }
+
+        function startTimer() {
+            if (gameState.timerInterval) return;
+            gameState.timerSeconds = 0;
+            updateUI();
+            gameState.timerInterval = setInterval(() => {
+                gameState.timerSeconds++;
+                updateUI();
+                if (gameState.timerSeconds >= 999) {
+                    gameState.timerSeconds = 999;
+                    clearInterval(gameState.timerInterval);
+                    gameState.timerInterval = null;
+                }
+            }, 1000);
+        }
+
+        function updateUI() {
+            const remaining = TOTAL_MINES - gameState.flagCount;
+            mineRemainingEl.textContent = remaining >= 0 ? remaining : 0;
+            if (remaining < 0) {
+                mineRemainingEl.style.color = '#ff4444';
+            } else {
+                mineRemainingEl.style.color = '';
+            }
+            timeDisplayEl.textContent = String(gameState.timerSeconds).padStart(3, '0');
+        }
+
+        function showOverlay(type, title, subtitle) {
+            overlay.classList.add('show', type);
+            overlayTitle.textContent = title;
+            overlaySubtitle.textContent = subtitle;
+        }
+
+        function hideOverlay() {
+            overlay.classList.remove('show', 'win', 'lose');
+        }
+
+        function resetGame() {
+            hideOverlay();
+            // 清除所有动态对象
+            while (coversGroup.children.length > 0) {
+                const child = coversGroup.children[0];
+                coversGroup.remove(child);
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+                if (child.geometry) child.geometry.dispose();
+            }
+            while (markersGroup.children.length > 0) {
+                const child = markersGroup.children[0];
+                markersGroup.remove(child);
+                disposeObjectRecursive(child);
+            }
+            while (flagsGroup.children.length > 0) {
+                const child = flagsGroup.children[0];
+                flagsGroup.remove(child);
+                if (child.material) {
+                    if (child.material.map) child.material.map.dispose();
+                    child.material.dispose();
+                }
+            }
+            // 清除粒子
+            for (const group of activeParticles) {
+                scene.remove(group);
+                group.children.forEach(c => {
+                    if (c.material) c.material.dispose();
+                    if (c.geometry) c.geometry.dispose();
+                });
+            }
+            activeParticles.length = 0;
+
+            gameState.coverMeshes = {};
+            gameState.flagSprites = {};
+            gameState.markerObjects = {};
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = null;
+
+            initGameGrid();
+            buildAllCovers();
+            buildAllMarkers();
+            updateUI();
+        }
+
+        function disposeObjectRecursive(obj) {
+            if (obj.children && obj.children.length > 0) {
+                for (const child of [...obj.children]) {
+                    disposeObjectRecursive(child);
+                }
+            }
+            if (obj.material) {
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => {
+                        if (m.map) m.map.dispose();
+                        m.dispose();
+                    });
+                } else {
+                    if (obj.material.map) obj.material.map.dispose();
+                    obj.material.dispose();
+                }
+            }
+            if (obj.geometry) obj.geometry.dispose();
+        }
+
+        function buildAllCovers() {
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    const key = `${row},${col}`;
+                    const mesh = createCoverMesh(row, col);
+                    gameState.coverMeshes[key] = mesh;
+                    coversGroup.add(mesh);
+                }
+            }
+        }
+
+        function buildAllMarkers() {
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    const key = `${row},${col}`;
+                    // 地雷标记
+                    const mineMarker = createMineMarker(row, col);
+                    mineMarker.userData.isMineGroup = true;
+                    gameState.markerObjects[key] = mineMarker;
+                    markersGroup.add(mineMarker);
+                }
+            }
+            // 数字标记会在reveal时动态创建
+        }
+
+        // ==================== 相机震动 ====================
+        let shakeIntensity = 0;
+        let shakeDuration = 0;
+        const cameraRestPosition = new THREE.Vector3();
+
+        function triggerCameraShake() {
+            shakeIntensity = 0.35;
+            shakeDuration = 0.4;
+            cameraRestPosition.copy(camera.position);
+        }
+
+        function updateCameraShake(deltaTime) {
+            if (shakeDuration > 0) {
+                shakeDuration -= deltaTime;
+                const decay = Math.max(0, shakeDuration / 0.4);
+                const intensity = shakeIntensity * decay;
+                const offsetX = (Math.random() - 0.5) * intensity * 2;
+                const offsetY = (Math.random() - 0.5) * intensity * 2;
+                const offsetZ = (Math.random() - 0.5) * intensity * 2;
+                camera.position.set(
+                    cameraRestPosition.x + offsetX,
+                    cameraRestPosition.y + offsetY,
+                    cameraRestPosition.z + offsetZ
+                );
+                if (shakeDuration <= 0) {
+                    camera.position.copy(cameraRestPosition);
+                }
+            }
+        }
+
+        // ==================== 交互处理 ====================
+        const raycaster = new THREE.Raycaster();
+        raycaster.far = 25;
+        const mouse = new THREE.Vector2();
+        let mouseDownPos = new THREE.Vector2();
+        let mouseUpPos = new THREE.Vector2();
+        let isDragging = false;
+        const DRAG_THRESHOLD = 4; // 像素
+        let hoveredCoverKey = null;
+
+        function getIntersections(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // 检测cover和flag
+            const coverList = Object.values(gameState.coverMeshes);
+            const flagList = Object.values(gameState.flagSprites).filter(s => s.visible);
+            const allTargets = [...coverList, ...flagList];
+            return raycaster.intersectObjects(allTargets, false);
+        }
+
+        function getCoverIntersection(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const coverList = Object.values(gameState.coverMeshes);
+            return raycaster.intersectObjects(coverList, false);
+        }
+
+        function handleClick(event) {
+            if (isDragging) return;
+            if (gameState.gameOver || gameState.gameWon) return;
+
+            // 准备射线
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // 收集所有可能被点击的精灵：数字精灵 + 旗帜精灵
+            const clickableSprites = [];
+            // 数字精灵（在 markersGroup 中）
+            markersGroup.children.forEach(child => {
+                if (child.isSprite && child.visible && child.userData && child.userData.number) {
+                    clickableSprites.push(child);
+                }
+            });
+            // 旗帜精灵（在 flagsGroup 中）
+            flagsGroup.children.forEach(child => {
+                if (child.isSprite && child.visible && child.userData && child.userData.isFlag) {
+                    clickableSprites.push(child);
+                }
+            });
+
+            const spriteIntersects = raycaster.intersectObjects(clickableSprites, false);
+            if (spriteIntersects.length > 0) {
+                const hitSprite = spriteIntersects[0].object;
+                const { row, col } = hitSprite.userData;
+
+                // 情况1：点击的是数字精灵 → 直接高亮邻居
+                if (hitSprite.userData.number) {
+                    if (gameState.grid[row] && gameState.grid[row][col] && gameState.grid[row][col].revealed) {
+                        highlightNeighbors(row, col);
+                        return;
+                    }
+                }
+                // 情况2：点击的是旗帜精灵 → 检查它下面的格子是否已翻开且为数字
+                if (hitSprite.userData.isFlag) {
+                    if (gameState.grid[row] && gameState.grid[row][col] && gameState.grid[row][col].revealed && gameState.grid[row][col].neighborCount > 0) {
+                        // 该位置已翻开且是数字，同样高亮邻居
+                        highlightNeighbors(row, col);
+                        return;
+                    }
+                }
+                // 其他情况（点击旗帜但下面是空白或未翻开）→ 不做任何事，也不清除高亮（保持之前高亮）
+                return;
+            }
+
+            // 没有点到任何精灵，尝试点击 cover（揭开格子）
+            const coverIntersects = getCoverIntersection(event);
+            if (coverIntersects.length > 0) {
+                const obj = coverIntersects[0].object;
+                if (obj.userData && obj.userData.isCover) {
+                    const { row, col } = obj.userData;
+                    clearHighlight(); // 揭开新格子时清除高亮
+                    revealCell(row, col);
+                    return;
+                }
+            }
+
+            // 点到空白区域，清除高亮
+            clearHighlight();
+        }
+
+        function handleRightClick(event) {
+            event.preventDefault();
+            clearHighlight(); // 右键时清除高亮
+            if (gameState.gameOver || gameState.gameWon) return;
+
+            const intersections = getCoverIntersection(event);
+            if (intersections.length > 0) {
+                const obj = intersections[0].object;
+                if (obj.userData && obj.userData.isCover) {
+                    const { row, col } = obj.userData;
+                    toggleFlag(row, col);
+                }
+            }
+            // 也检测已标记的flag sprite用于取消
+            if (intersections.length === 0) {
+                const flagIntersections = getIntersections(event);
+                for (const inter of flagIntersections) {
+                    if (inter.object.userData && inter.object.userData.isFlag) {
+                        const { row, col } = inter.object.userData;
+                        toggleFlag(row, col);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 事件监听
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            mouseDownPos.set(event.clientX, event.clientY);
+            isDragging = false;
+        });
+
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            if (mouseDownPos.distanceTo(new THREE.Vector2(event.clientX, event.clientY)) > DRAG_THRESHOLD) {
+                isDragging = true;
+            }
+
+            // Hover效果
+            if (!isDragging && !gameState.gameOver && !gameState.gameWon) {
+                const intersections = getCoverIntersection(event);
+                const newHoverKey = intersections.length > 0 &&
+                    intersections[0].object.userData &&
+                    intersections[0].object.userData.isCover ?
+                    `${intersections[0].object.userData.row},${intersections[0].object.userData.col}` :
+                    null;
+
+                if (hoveredCoverKey !== newHoverKey) {
+                    // 恢复旧hover
+                    if (hoveredCoverKey && gameState.coverMeshes[hoveredCoverKey]) {
+                        const oldMesh = gameState.coverMeshes[hoveredCoverKey];
+                        if (oldMesh.material !== coverMaterialDefault &&
+                            oldMesh.material !== coverMaterialRevealed) {
+                            oldMesh.material.dispose();
+                            oldMesh.material = coverMaterialDefault.clone();
+                        }
+                    }
+                    // 设置新hover
+                    if (newHoverKey && gameState.coverMeshes[newHoverKey]) {
+                        const newMesh = gameState.coverMeshes[newHoverKey];
+                        if (!gameState.grid[newMesh.userData.row][newMesh.userData.col].revealed) {
+                            newMesh.material.dispose();
+                            newMesh.material = coverMaterialHover.clone();
+                        }
+                    }
+                    hoveredCoverKey = newHoverKey;
+                }
+            }
+        });
+
+        renderer.domElement.addEventListener('mouseup', (event) => {
+            mouseUpPos.set(event.clientX, event.clientY);
+            const dragDistance = mouseDownPos.distanceTo(mouseUpPos);
+
+            if (dragDistance < DRAG_THRESHOLD && !isDragging) {
+                if (event.button === 0) {
+                    handleClick(event);
+                }
+            }
+        });
+
+        renderer.domElement.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            const dragDistance = mouseDownPos.distanceTo(new THREE.Vector2(event.clientX, event.clientY));
+            if (dragDistance < DRAG_THRESHOLD) {
+                handleRightClick(event);
+            }
+        });
+
+        // 触摸支持
+        let touchStartTime = 0;
+        let touchStartPos = new THREE.Vector2();
+        let longPressTimer = null;
+
+        renderer.domElement.addEventListener('touchstart', (event) => {
+            if (event.touches.length === 1) {
+                touchStartTime = Date.now();
+                touchStartPos.set(event.touches[0].clientX, event.touches[0].clientY);
+                mouseDownPos.copy(touchStartPos);
+                isDragging = false;
+
+                // 长按检测（用于标记旗帜）
+                const touch = event.touches[0];
+                longPressTimer = setTimeout(() => {
+                    const currentPos = new THREE.Vector2(
+                        event.touches.length > 0 ? event.touches[0].clientX : touch.clientX,
+                        event.touches.length > 0 ? event.touches[0].clientY : touch.clientY
+                    );
+                    if (touchStartPos.distanceTo(currentPos) < DRAG_THRESHOLD * 2) {
+                        handleRightClick({ clientX: currentPos.x, clientY: currentPos.y, preventDefault: () => {} });
+                        // 触发短暂震动反馈
+                        if (navigator.vibrate) navigator.vibrate(15);
+                    }
+                }, 500);
+            } else {
+                if (longPressTimer) clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+
+        renderer.domElement.addEventListener('touchmove', (event) => {
+            if (event.touches.length === 1 && touchStartPos.distanceTo(new THREE.Vector2(event.touches[0].clientX,
+                    event.touches[0].clientY)) > DRAG_THRESHOLD) {
+                isDragging = true;
+                if (longPressTimer) clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        });
+
+        renderer.domElement.addEventListener('touchend', (event) => {
+            if (longPressTimer) clearTimeout(longPressTimer);
+            longPressTimer = null;
+
+            const elapsed = Date.now() - touchStartTime;
+            if (!isDragging && elapsed < 400) {
+                const changedTouch = event.changedTouches[0];
+                if (changedTouch) {
+                    handleClick({ clientX: changedTouch.clientX, clientY: changedTouch.clientY });
+                }
+            }
+        });
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 重置按钮
+        btnReset.addEventListener('click', () => {
+            resetGame();
+        });
+
+        // 弹窗按钮
+        overlayBtn.addEventListener('click', () => {
+            resetGame();
+        });
+
+        // 键盘快捷键
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'r' || event.key === 'R') {
+                resetGame();
+            }
+        });
+
+        // ==================== 动画循环 ====================
+        const clock = new THREE.Clock();
+        let elapsedTotal = 0;
+
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+
+            const deltaTime = Math.min(clock.getDelta(), 0.2);
+            elapsedTotal += deltaTime;
+
+            controls.update();
+            updateCameraShake(deltaTime);
+            updateParticles(deltaTime);
+
+            // 地雷微妙的呼吸动画
+            if (gameState.gameOver || gameState.gameWon) {
+                const breath = 1 + Math.sin(elapsedTotal * 3) * 0.08;
+                for (const key in gameState.markerObjects) {
+                    const marker = gameState.markerObjects[key];
+                    if (marker.visible && marker.userData && marker.userData.isMineGroup) {
+                        // 只对可见的地雷做呼吸动画
+                        const core = marker.children.find(c =>
+                            c.material && c.material.emissive && c.material.emissiveIntensity > 0.5
+                        );
+                        if (core) {
+                            core.scale.setScalar(breath);
+                            core.material.emissiveIntensity = 1.5 + Math.sin(elapsedTotal * 3) * 0.6;
+                        }
+                    }
+                }
+            }
+
+            // 旗帜轻微摇摆
+            const flagWave = Math.sin(elapsedTotal * 2.5) * 0.03;
+            for (const key in gameState.flagSprites) {
+                const sprite = gameState.flagSprites[key];
+                if (sprite.visible) {
+                    sprite.rotation.z = flagWave;
+                }
+            }
+
+            renderer.render(scene, camera);
+
+            // 更新cameraRestPosition（如果不在震动中）
+            if (shakeDuration <= 0) {
+                cameraRestPosition.copy(camera.position);
+            }
+        }
+
+        // 将这两个函数放在任意位置，例如在 updateUI 函数之后
+        function highlightNeighbors(row, col) {
+            clearHighlight(); // 先清除旧的高亮
+            forEachNeighbor(row, col, (r, c) => {
+                const key = `${r},${c}`;
+                const cover = gameState.coverMeshes[key];
+                // 只要格子未被揭开（仍有 cover），就高亮它
+                if (cover && !gameState.grid[r][c].revealed) {
+                    const isFlagged = gameState.grid[r][c].flagged;
+                    const originalMat = cover.material;
+                    // 保存原始材质引用
+                    highlightedNeighbors.push({ mesh: cover, originalMaterial: originalMat });
+                    
+                    // 根据是否插旗使用不同颜色
+                    const highlightMat = new THREE.MeshStandardMaterial({
+                        color: isFlagged ? '#90EE90' : '#ffd966',      // 已标记：浅绿色；未标记：亮黄色
+                        roughness: 0.2,
+                        metalness: 0.1,
+                        emissive: isFlagged ? '#228B22' : '#ffaa00',
+                        emissiveIntensity: 0.8,
+                        transparent: true,
+                        opacity: 0.9,
+                    });
+                    cover.material = highlightMat;
+                }
+            });
+        }
+
+        function clearHighlight() {
+            highlightedNeighbors.forEach(item => {
+                // 恢复原始材质，并释放高亮材质
+                if (item.mesh) {
+                    if (item.mesh.material !== item.originalMaterial) {
+                        item.mesh.material.dispose();
+                    }
+                    item.mesh.material = item.originalMaterial;
+                }
+            });
+            highlightedNeighbors = [];
+        }
+
+        // ==================== 初始化 ====================
+        function init() {
+            createBasePlate();
+            initGameGrid();
+            buildAllCovers();
+            buildAllMarkers();
+            updateUI();
+            hideOverlay();
+            requestAnimationFrame(animate);
+        }
+
+        init();
+
+        console.log('🎮 3D扫雷游戏已就绪！');
+        console.log('  🖱 左键点击 - 揭开方块');
+        console.log('  🖱 右键点击 - 标记/取消旗帜');
+        console.log('  🖱 拖拽 - 旋转视角');
+        console.log('  🖱 滚轮 - 缩放');
+        console.log('  ⌨ 按R键 - 重新开始');
+        console.log('  📱 移动端长按 - 标记旗帜');
+        console.log('  💣 地雷数量: ' + TOTAL_MINES + ' | 网格: ' + GRID_SIZE + '×' + GRID_SIZE);
+    </script>
+</body>
+</html>
