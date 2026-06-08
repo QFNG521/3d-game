@@ -1,0 +1,2709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>门店管家 — UI 原型</title>
+<style>
+/* ========================================
+   Design Tokens — 温暖柔和
+   ======================================== */
+:root {
+  --primary-50:  #FEF5F3;
+  --primary-100: #FDE8E5;
+  --primary-200: #FAD1CC;
+  --primary-300: #F5A9A0;
+  --primary-400: #F08C80;
+  --primary-500: #E8877B;
+  --primary-600: #D46558;
+  --primary-700: #BF4A3D;
+
+  --neutral-50:  #FDF8F5;
+  --neutral-100: #F5EFEB;
+  --neutral-200: #EBE2DD;
+  --neutral-300: #D5CBC5;
+  --neutral-400: #B8ADA6;
+  --neutral-500: #8B7D7B;
+  --neutral-600: #6B5F5C;
+  --neutral-700: #4A403E;
+  --neutral-800: #3D302F;
+  --neutral-900: #2C2120;
+
+  --success:       #7BC67E;
+  --success-light: #E8F7E9;
+  --warning:       #F0C78E;
+  --warning-light: #FEF7ED;
+  --error:         #E8877B;
+  --error-light:   #FEF5F3;
+  --info:          #7BA7CC;
+  --info-light:    #EDF5FA;
+  --gold:          #D4A574;
+  --gold-light:    #FDF3E8;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-full: 999px;
+
+  --shadow-xs: 0 1px 3px rgba(61,48,47,0.04);
+  --shadow-sm: 0 2px 8px rgba(61,48,47,0.06);
+  --shadow-md: 0 4px 16px rgba(61,48,47,0.08);
+}
+
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  background: #F0EBE7;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Phone Frame */
+.phone {
+  width: 375px;
+  height: 812px;
+  background: var(--neutral-50);
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow:
+    0 20px 60px rgba(61,48,47,0.15),
+    0 0 0 2px #2C2120,
+    0 0 0 6px #D5CBC5,
+    0 0 0 8px #2C2120;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status Bar */
+.status-bar {
+  height: 44px;
+  background: #FFF;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neutral-900);
+  flex-shrink: 0;
+}
+.status-bar .time { font-size: 14px; }
+.status-bar .icons { display: flex; gap: 6px; align-items: center; font-size: 11px; }
+
+/* Nav Bar */
+.nav-bar {
+  height: 44px;
+  background: #FFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--neutral-900);
+  border-bottom: 0.5px solid var(--neutral-200);
+  flex-shrink: 0;
+  position: relative;
+}
+.nav-bar .back-btn {
+  position: absolute;
+  left: 16px;
+  font-size: 15px;
+  color: var(--primary-500);
+  cursor: pointer;
+  display: none;
+  padding: 8px;
+}
+
+/* Main Content */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.content::-webkit-scrollbar { display: none; }
+
+/* Page wrapper */
+.page { display: none; padding: 16px; padding-bottom: 24px; }
+.page.active { display: block; }
+
+/* ========================================
+   TabBar
+   ======================================== */
+.tabbar {
+  height: 60px;
+  background: #FFF;
+  border-top: 0.5px solid var(--neutral-200);
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding-top: 6px;
+  flex-shrink: 0;
+}
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--neutral-400);
+  cursor: pointer;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  transition: color 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: flex-start;
+}
+.tab-item.active { color: var(--primary-500); }
+.tab-item svg { width: 22px; height: 22px; }
+.tab-item .badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  background: var(--primary-500);
+  color: #FFF;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.tab-icon-wrap { position: relative; }
+
+/* ========================================
+   Boss Dashboard
+   ======================================== */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.store-name { font-size: 20px; font-weight: 700; color: var(--neutral-900); }
+.store-date { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.stat-card {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 14px 10px;
+  text-align: center;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.stat-card:active { transform: scale(0.97); }
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--neutral-900);
+  line-height: 1.2;
+}
+.stat-value.revenue { color: var(--gold); font-size: 22px; }
+.stat-label { font-size: 11px; color: var(--neutral-500); margin-top: 4px; }
+
+.section { margin-bottom: 16px; }
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.section-title { font-size: 15px; font-weight: 600; color: var(--neutral-800); }
+.section-link { font-size: 13px; color: var(--primary-500); cursor: pointer; padding: 4px 8px; }
+
+/* Appointment List */
+.appt-list {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.appt-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--neutral-100);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.appt-item:last-child { border-bottom: none; }
+.appt-item:active { background: var(--neutral-50); }
+.appt-time {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-500);
+  min-width: 48px;
+}
+.appt-info { flex: 1; }
+.appt-name { font-size: 15px; color: var(--neutral-800); font-weight: 500; }
+.appt-service { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+.appt-price { font-size: 15px; font-weight: 600; color: var(--gold); }
+
+/* Monthly Overview Card */
+.overview-card {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-xs);
+}
+.overview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+.overview-label { font-size: 14px; color: var(--neutral-600); }
+.overview-value { font-size: 14px; font-weight: 600; color: var(--neutral-800); }
+.overview-value.positive { color: var(--success); }
+.overview-net {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--success);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 0.5px solid var(--neutral-100);
+}
+.mini-chart {
+  margin-top: 12px;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+.mini-bar {
+  flex: 1;
+  background: var(--primary-200);
+  border-radius: 3px 3px 0 0;
+  transition: height 0.4s;
+}
+.mini-bar.today { background: var(--primary-400); }
+
+/* Attendance List */
+.att-list {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.att-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 10px;
+  border-bottom: 0.5px solid var(--neutral-100);
+}
+.att-item:last-child { border-bottom: none; }
+.att-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.att-status.present { background: var(--success); }
+.att-status.absent { background: var(--neutral-300); }
+.att-name { font-size: 14px; color: var(--neutral-800); flex: 1; }
+.att-time { font-size: 13px; color: var(--neutral-500); }
+.att-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+.att-tag.normal { background: var(--success-light); color: var(--success); }
+.att-tag.late { background: var(--warning-light); color: var(--warning); }
+.att-tag.absent-tag { background: var(--neutral-100); color: var(--neutral-500); }
+
+/* Pending Items */
+.pending-bar {
+  background: var(--warning-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--neutral-700);
+  cursor: pointer;
+}
+.pending-bar .count { color: var(--primary-500); font-weight: 600; }
+.pending-bar .arrow { margin-left: auto; color: var(--neutral-400); font-size: 16px; }
+
+/* ========================================
+   Employee Clock-in Page
+   ======================================== */
+.clock-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 20px;
+}
+.clock-date {
+  font-size: 17px;
+  color: var(--neutral-600);
+  margin-bottom: 8px;
+}
+.clock-day {
+  font-size: 13px;
+  color: var(--neutral-400);
+  margin-bottom: 24px;
+}
+
+.clock-circle {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-400), var(--primary-500));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #FFF;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(232,135,123,0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-bottom: 12px;
+  user-select: none;
+}
+.clock-circle:active { transform: scale(0.95); box-shadow: 0 4px 16px rgba(232,135,123,0.20); }
+.clock-circle.done {
+  background: linear-gradient(135deg, var(--success), #5DAF63);
+  box-shadow: 0 8px 32px rgba(123,198,126,0.25);
+}
+.clock-time { font-size: 32px; font-weight: 700; }
+.clock-action { font-size: 15px; font-weight: 500; margin-top: 4px; }
+.clock-status-tag {
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+  margin-top: 6px;
+}
+.clock-status-tag.normal { background: rgba(255,255,255,0.3); }
+.clock-info {
+  font-size: 13px;
+  color: var(--neutral-500);
+  margin-top: 4px;
+}
+
+.clock-divider {
+  width: 40px;
+  height: 2px;
+  background: var(--neutral-200);
+  border-radius: 1px;
+  margin: 16px 0;
+}
+
+.clock-stats {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  width: 100%;
+  box-shadow: var(--shadow-xs);
+  margin-top: 8px;
+}
+.clock-stats-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neutral-800);
+  margin-bottom: 12px;
+}
+.clock-stats-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.clock-stats-label { color: var(--neutral-500); }
+.clock-stats-value { color: var(--neutral-800); font-weight: 500; }
+
+.attendance-preview {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  width: 100%;
+  box-shadow: var(--shadow-xs);
+  margin-top: 12px;
+}
+.attendance-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.att-preview-stats { display: flex; gap: 16px; }
+.att-preview-stat { text-align: center; }
+.att-preview-num { font-size: 17px; font-weight: 600; color: var(--neutral-800); }
+.att-preview-label { font-size: 11px; color: var(--neutral-500); }
+
+/* Mini Calendar */
+.mini-cal { margin-top: 8px; }
+.mini-cal-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--neutral-400); margin-bottom: 4px; }
+.mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mini-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--neutral-600);
+  border-radius: 6px;
+}
+.mini-cal-day.today { background: var(--primary-100); color: var(--primary-600); font-weight: 600; }
+.mini-cal-day.absent { background: var(--neutral-100); color: var(--neutral-400); }
+.mini-cal-day.late { background: var(--warning-light); color: var(--warning); }
+
+/* ========================================
+   Customer Booking Page
+   ======================================== */
+.store-banner {
+  background: linear-gradient(135deg, var(--primary-100), var(--primary-50));
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.store-banner-name { font-size: 18px; font-weight: 700; color: var(--neutral-800); }
+.store-banner-info { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+.store-banner-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 3px 10px;
+  background: var(--success-light);
+  color: var(--success);
+  border-radius: var(--radius-full);
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.search-bar {
+  background: #FFF;
+  border-radius: var(--radius-full);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-xs);
+  color: var(--neutral-400);
+  font-size: 14px;
+}
+
+.category-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.category-pills::-webkit-scrollbar { display: none; }
+.cat-pill {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  white-space: nowrap;
+  border: 1px solid var(--neutral-200);
+  background: #FFF;
+  color: var(--neutral-600);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cat-pill.active {
+  background: var(--primary-500);
+  color: #FFF;
+  border-color: var(--primary-500);
+}
+
+.service-card {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  gap: 14px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.service-card:active { transform: scale(0.98); }
+.service-img {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-100);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+.service-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.service-name { font-size: 16px; font-weight: 600; color: var(--neutral-800); }
+.service-desc { font-size: 13px; color: var(--neutral-500); margin-top: 2px; }
+.service-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.service-price { font-size: 20px; font-weight: 700; color: var(--gold); }
+.service-price span { font-size: 13px; font-weight: 400; }
+.service-duration { font-size: 12px; color: var(--neutral-400); }
+.service-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  background: var(--primary-500);
+  color: #FFF;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+.service-btn:active { background: var(--primary-600); }
+
+/* ========================================
+   Management Page
+   ======================================== */
+.mgmt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.mgmt-item {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 20px 12px;
+  text-align: center;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.mgmt-item:active { transform: scale(0.96); }
+.mgmt-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.mgmt-icon.users { background: var(--info-light); }
+.mgmt-icon.attendance { background: var(--primary-50); }
+.mgmt-icon.performance { background: var(--warning-light); }
+.mgmt-icon.finance { background: var(--gold-light); }
+.mgmt-icon.services { background: var(--success-light); }
+.mgmt-icon.cards { background: var(--primary-50); }
+.mgmt-icon.settings { background: var(--neutral-100); }
+.mgmt-label { font-size: 12px; color: var(--neutral-700); font-weight: 500; }
+
+/* ========================================
+   Messages Page
+   ======================================== */
+.msg-item {
+  background: #FFF;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.msg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-500);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.msg-dot.read { background: transparent; }
+.msg-content { flex: 1; }
+.msg-title { font-size: 15px; font-weight: 500; color: var(--neutral-800); }
+.msg-body { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+.msg-time { font-size: 11px; color: var(--neutral-400); margin-top: 6px; }
+
+/* ========================================
+   My Profile Page
+   ======================================== */
+.profile-card {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 16px;
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.profile-info { flex: 1; }
+.profile-name { font-size: 18px; font-weight: 600; color: var(--neutral-800); }
+.profile-store { font-size: 13px; color: var(--neutral-500); margin-top: 2px; }
+
+/* Role Switcher */
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 12px;
+  cursor: pointer;
+  border: 1px solid var(--primary-200);
+}
+.role-tag .arrow { font-size: 10px; }
+
+/* Menu List */
+.menu-list {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 12px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--neutral-100);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 15px;
+  color: var(--neutral-800);
+}
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background: var(--neutral-50); }
+.menu-item .menu-icon { font-size: 18px; width: 24px; text-align: center; }
+.menu-item .menu-arrow { margin-left: auto; color: var(--neutral-300); }
+
+/* ========================================
+   Role Switcher Panel (Overlay)
+   ======================================== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: flex-end;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.role-panel {
+  width: 100%;
+  background: #FFF;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 24px 20px 40px;
+}
+.role-panel-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--neutral-800);
+  margin-bottom: 20px;
+  text-align: center;
+}
+.role-option {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  gap: 14px;
+  border: 1.5px solid transparent;
+}
+.role-option:hover { background: var(--neutral-50); }
+.role-option.current {
+  background: var(--primary-50);
+  border-color: var(--primary-200);
+}
+.role-option-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.role-option-icon.boss { background: var(--gold-light); }
+.role-option-icon.employee { background: var(--primary-50); }
+.role-option-icon.customer { background: var(--info-light); }
+.role-option-info { flex: 1; }
+.role-option-name { font-size: 16px; font-weight: 600; color: var(--neutral-800); }
+.role-option-desc { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+.role-option-check {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFF;
+  font-size: 12px;
+  display: none;
+}
+.role-option.current .role-option-check { display: flex; }
+.role-panel-close {
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--radius-full);
+  background: var(--neutral-100);
+  border: none;
+  font-size: 15px;
+  color: var(--neutral-600);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* ========================================
+   Finance Report Sub-page
+   ======================================== */
+.finance-page { display: none; }
+.finance-page.active { display: block; }
+.finance-summary {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 16px;
+}
+.finance-total { font-size: 32px; font-weight: 700; color: var(--gold); }
+.finance-period { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+.finance-breakdown { margin-top: 16px; }
+.finance-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+}
+.finance-row-label { color: var(--neutral-600); }
+.finance-row-value { font-weight: 600; color: var(--neutral-800); }
+.finance-row.indent { padding-left: 16px; font-size: 13px; color: var(--neutral-500); }
+.finance-divider { height: 0.5px; background: var(--neutral-100); margin: 4px 0; }
+.finance-net {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--success);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--neutral-100);
+}
+
+/* ========================================
+   Booking Flow Sub-page
+   ======================================== */
+.booking-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.booking-step {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--neutral-200);
+}
+.booking-step.done { background: var(--primary-400); }
+.booking-step.current { background: var(--primary-500); }
+
+.booking-section { margin-bottom: 20px; }
+.booking-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neutral-800);
+  margin-bottom: 10px;
+}
+
+/* Time Slot Picker */
+.slot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+.slot-item {
+  padding: 10px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: #FFF;
+  border: 1px solid var(--neutral-200);
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.slot-item.selected {
+  background: var(--primary-500);
+  color: #FFF;
+  border-color: var(--primary-500);
+}
+.slot-item.disabled {
+  background: var(--neutral-50);
+  color: var(--neutral-300);
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* Employee Picker */
+.employee-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #FFF;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+}
+.employee-option.selected {
+  border-color: var(--primary-300);
+  background: var(--primary-50);
+}
+.employee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* Confirm Booking */
+.booking-confirm {
+  background: #FFF;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  box-shadow: var(--shadow-xs);
+}
+.booking-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 14px;
+  border-bottom: 0.5px solid var(--neutral-100);
+}
+.booking-confirm-row:last-child { border-bottom: none; }
+.booking-confirm-label { color: var(--neutral-500); }
+.booking-confirm-value { color: var(--neutral-800); font-weight: 500; }
+
+.submit-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--primary-500);
+  color: #FFF;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background 0.15s, transform 0.15s;
+}
+.submit-btn:active { background: var(--primary-600); transform: scale(0.98); }
+
+/* Success Overlay */
+.success-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.success-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--success-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  margin-bottom: 16px;
+}
+.success-title { font-size: 20px; font-weight: 700; color: var(--neutral-800); }
+.success-desc { font-size: 14px; color: var(--neutral-500); margin-top: 8px; margin-bottom: 32px; }
+.success-btn {
+  padding: 14px 48px;
+  border-radius: var(--radius-full);
+  background: var(--primary-500);
+  color: #FFF;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(123,198,126,0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(123,198,126,0); }
+  100% { box-shadow: 0 0 0 0 rgba(123,198,126,0); }
+}
+.clock-circle.pulse { animation: pulse-ring 0.8s ease-out; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeInUp 0.4s ease-out forwards; opacity: 0; }
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 48px 0;
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-title { font-size: 16px; color: var(--neutral-600); margin-bottom: 8px; }
+.empty-desc { font-size: 13px; color: var(--neutral-400); }
+
+/* Toast */
+.toast {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--neutral-800);
+  color: #FFF;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  z-index: 300;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.toast.show { opacity: 1; }
+
+/* ========================================
+   New Sub-page Styles
+   ======================================== */
+
+/* User Management */
+.user-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  background: #FFF;
+  border-bottom: 0.5px solid var(--neutral-100);
+  cursor: pointer;
+}
+.user-item:first-child { border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.user-item:last-child { border-radius: 0 0 var(--radius-md) var(--radius-md); border-bottom: none; }
+.user-avatar-circle {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.user-avatar-circle.boss-bg { background: var(--gold-light); }
+.user-avatar-circle.emp-bg { background: var(--primary-50); }
+.user-info { flex: 1; }
+.user-info-name { font-size: 15px; font-weight: 500; color: var(--neutral-800); }
+.user-info-role { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+.user-role-badge {
+  font-size: 11px; padding: 4px 10px; border-radius: var(--radius-full);
+  font-weight: 500;
+}
+.user-role-badge.boss { background: var(--gold-light); color: var(--gold); }
+.user-role-badge.employee { background: var(--info-light); color: var(--info); }
+
+/* Attendance Stats */
+.att-calendar {
+  background: #FFF; border-radius: var(--radius-md);
+  padding: 16px; box-shadow: var(--shadow-xs); margin-bottom: 16px;
+}
+.att-cal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
+}
+.att-cal-month { font-size: 17px; font-weight: 600; color: var(--neutral-800); }
+.att-cal-nav { font-size: 13px; color: var(--primary-500); cursor: pointer; }
+.att-legend { display: flex; gap: 16px; margin-bottom: 12px; font-size: 11px; }
+.att-legend-item { display: flex; align-items: center; gap: 4px; }
+.att-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+.att-legend-dot.present { background: var(--success); }
+.att-legend-dot.late-d { background: var(--warning); }
+.att-legend-dot.absent-d { background: var(--neutral-300); }
+.att-summary-row {
+  display: flex; justify-content: space-between; padding: 10px 0;
+  border-top: 0.5px solid var(--neutral-100);
+  font-size: 14px;
+}
+.att-summary-label { color: var(--neutral-500); }
+.att-summary-value { font-weight: 600; color: var(--neutral-800); }
+
+/* Performance */
+.perf-card-summary {
+  background: #FFF; border-radius: var(--radius-md);
+  padding: 20px; box-shadow: var(--shadow-xs); margin-bottom: 16px;
+}
+.perf-top-title { font-size: 14px; color: var(--neutral-500); margin-bottom: 8px; }
+.perf-top-name { font-size: 20px; font-weight: 700; color: var(--neutral-800); }
+.perf-top-amount { font-size: 32px; font-weight: 700; color: var(--gold); margin-top: 4px; }
+.perf-ranking { margin-top: 16px; }
+.perf-rank-item {
+  display: flex; align-items: center; padding: 10px 0;
+  border-bottom: 0.5px solid var(--neutral-100);
+}
+.perf-rank-item:last-child { border-bottom: none; }
+.perf-rank-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600; flex-shrink: 0;
+  margin-right: 12px;
+}
+.perf-rank-num.r1 { background: var(--gold-light); color: var(--gold); }
+.perf-rank-num.r2 { background: var(--neutral-200); color: var(--neutral-500); }
+.perf-rank-num.r3 { background: var(--neutral-200); color: var(--neutral-500); }
+.perf-rank-info { flex: 1; }
+.perf-rank-name { font-size: 14px; font-weight: 500; color: var(--neutral-800); }
+.perf-rank-service { font-size: 12px; color: var(--neutral-500); }
+.perf-rank-amount { font-size: 16px; font-weight: 600; color: var(--gold); }
+
+/* Service Items */
+.service-mgmt-item {
+  background: #FFF; border-radius: var(--radius-md);
+  padding: 16px; margin-bottom: 12px;
+  box-shadow: var(--shadow-xs);
+  display: flex; gap: 14px; align-items: center;
+}
+.service-mgmt-icon {
+  width: 56px; height: 56px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+.service-mgmt-icon.haircut { background: var(--primary-50); }
+.service-mgmt-icon.perm { background: var(--warning-light); }
+.service-mgmt-icon.color { background: var(--info-light); }
+.service-mgmt-icon.care { background: var(--success-light); }
+.service-mgmt-content { flex: 1; }
+.service-mgmt-name { font-size: 16px; font-weight: 600; color: var(--neutral-800); }
+.service-mgmt-meta { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+.service-mgmt-price { font-size: 20px; font-weight: 700; color: var(--gold); margin-top: 6px; }
+.service-mgmt-switch {
+  width: 48px; height: 28px; border-radius: 14px;
+  background: var(--success); position: relative; cursor: pointer;
+  transition: background 0.2s;
+}
+.service-mgmt-switch::after {
+  content: ''; position: absolute; top: 3px; right: 3px;
+  width: 22px; height: 22px; border-radius: 50%; background: #FFF;
+}
+
+/* Card/Voucher Management */
+.card-mgmt-item {
+  background: #FFF; border-radius: var(--radius-md);
+  padding: 16px; margin-bottom: 12px;
+  box-shadow: var(--shadow-xs);
+}
+.card-mgmt-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 12px;
+}
+.card-mgmt-name { font-size: 17px; font-weight: 600; color: var(--neutral-800); }
+.card-mgmt-type {
+  font-size: 12px; padding: 4px 10px; border-radius: var(--radius-full);
+  font-weight: 500;
+}
+.card-mgmt-type.vip { background: var(--gold-light); color: var(--gold); }
+.card-mgmt-type.times { background: var(--info-light); color: var(--info); }
+.card-mgmt-type.voucher { background: var(--primary-50); color: var(--primary-500); }
+.card-mgmt-stats { display: flex; gap: 24px; }
+.card-mgmt-stat { text-align: center; }
+.card-mgmt-stat-num { font-size: 18px; font-weight: 600; color: var(--neutral-800); }
+.card-mgmt-stat-label { font-size: 11px; color: var(--neutral-500); }
+
+/* Customer Cards */
+.customer-card-item {
+  background: linear-gradient(135deg, var(--primary-400), var(--primary-500));
+  border-radius: var(--radius-md); padding: 20px; margin-bottom: 14px;
+  color: #FFF; box-shadow: 0 4px 16px rgba(232,135,123,0.2);
+}
+.customer-card-item.vip-card {
+  background: linear-gradient(135deg, var(--gold), #C49563);
+  box-shadow: 0 4px 16px rgba(212,165,116,0.25);
+}
+.customer-card-item.times-card {
+  background: linear-gradient(135deg, var(--info), #5A93B8);
+  box-shadow: 0 4px 16px rgba(123,167,204,0.25);
+}
+.ccard-type { font-size: 12px; opacity: 0.8; margin-bottom: 6px; }
+.ccard-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.ccard-remaining { font-size: 14px; opacity: 0.9; margin-bottom: 12px; }
+.ccard-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; opacity: 0.7; }
+
+/* Balance Page */
+.balance-header-card {
+  background: linear-gradient(135deg, var(--neutral-700), var(--neutral-800));
+  border-radius: var(--radius-md); padding: 24px; color: #FFF;
+  margin-bottom: 16px; box-shadow: 0 4px 16px rgba(61,48,47,0.15);
+}
+.balance-label { font-size: 14px; opacity: 0.7; }
+.balance-amount { font-size: 40px; font-weight: 700; margin: 8px 0; }
+.balance-actions { display: flex; gap: 10px; margin-top: 16px; }
+.balance-btn {
+  flex: 1; padding: 12px; border-radius: var(--radius-full);
+  text-align: center; font-size: 14px; font-weight: 500; cursor: pointer; border: none;
+}
+.balance-btn.recharge { background: var(--gold); color: #FFF; }
+.balance-btn.history { background: rgba(255,255,255,0.2); color: #FFF; }
+.balance-record {
+  background: #FFF; border-radius: var(--radius-md);
+  padding: 16px; margin-bottom: 8px; box-shadow: var(--shadow-xs);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.balance-record-left { }
+.balance-record-title { font-size: 14px; color: var(--neutral-800); }
+.balance-record-time { font-size: 12px; color: var(--neutral-500); margin-top: 4px; }
+.balance-record-amount { font-size: 18px; font-weight: 600; }
+.balance-record-amount.plus { color: var(--success); }
+.balance-record-amount.minus { color: var(--neutral-600); }
+
+/* Consumption Records */
+.consumption-item {
+  background: #FFF; border-radius: var(--radius-sm);
+  padding: 14px; margin-bottom: 8px; box-shadow: var(--shadow-xs);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.consume-left { }
+.consume-service { font-size: 15px; font-weight: 500; color: var(--neutral-800); }
+.consume-meta { font-size: 12px; color: var(--neutral-500); margin-top: 4px; }
+.consume-amount { font-size: 17px; font-weight: 600; color: var(--neutral-800); }
+.consume-method { font-size: 11px; color: var(--neutral-400); margin-top: 2px; text-align: right; }
+
+/* Page Header Tabs */
+.sub-tabs {
+  display: flex; gap: 0; margin-bottom: 16px;
+  background: var(--neutral-100); border-radius: var(--radius-full);
+  padding: 3px;
+}
+.sub-tab {
+  flex: 1; padding: 8px 0; text-align: center;
+  font-size: 13px; color: var(--neutral-500); border-radius: var(--radius-full);
+  cursor: pointer; transition: all 0.2s; border: none; background: none;
+}
+.sub-tab.active { background: #FFF; color: var(--primary-500); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+</style>
+</head>
+<body>
+
+<div class="phone" id="app">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="time">16:45</span>
+    <span class="icons">WiFi ▮▮▮▮  🔋 85%</span>
+  </div>
+
+  <!-- Nav Bar -->
+  <div class="nav-bar" id="navBar">
+    <span class="back-btn" id="backBtn" onclick="goBack()">← 返回</span>
+    <span id="navTitle">美丽源美容美发</span>
+  </div>
+
+  <!-- Content Area -->
+  <div class="content" id="content">
+    <!-- ====== BOSS DASHBOARD ====== -->
+    <div class="page active" id="page-boss-home">
+      <div class="dashboard-header">
+        <div>
+          <div class="store-name">🏪 美丽源美容美发</div>
+          <div class="store-date">6月8日 星期一</div>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-row">
+        <div class="stat-card" onclick="navigateTo('finance')">
+          <div class="stat-value revenue">¥2,380</div>
+          <div class="stat-label">今日营收</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">12</div>
+          <div class="stat-label">今日预约</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">3/5</div>
+          <div class="stat-label">在岗员工</div>
+        </div>
+      </div>
+
+      <!-- Today's Appointments -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">📋 今日预约</span>
+          <span class="section-link">全部 →</span>
+        </div>
+        <div class="appt-list">
+          <div class="appt-item">
+            <span class="appt-time">10:00</span>
+            <div class="appt-info">
+              <div class="appt-name">张姐</div>
+              <div class="appt-service">洗剪吹 · 张师傅</div>
+            </div>
+            <span class="appt-price">¥68</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">10:30</span>
+            <div class="appt-info">
+              <div class="appt-name">李太</div>
+              <div class="appt-service">烫发 · 李师傅</div>
+            </div>
+            <span class="appt-price">¥380</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">11:00</span>
+            <div class="appt-info">
+              <div class="appt-name">王姐</div>
+              <div class="appt-service">染发 · 张师傅</div>
+            </div>
+            <span class="appt-price">¥298</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Overview -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">📊 本月概览</span>
+        </div>
+        <div class="overview-card">
+          <div class="overview-row">
+            <span class="overview-label">营收</span>
+            <span class="overview-value">¥52,380 <span style="font-size:12px;color:var(--success)">↑12%</span></span>
+          </div>
+          <div class="overview-row">
+            <span class="overview-label">支出</span>
+            <span class="overview-value">¥18,200</span>
+          </div>
+          <div class="overview-net">净利润 ¥34,180</div>
+          <div class="mini-chart">
+            <div class="mini-bar" style="height:24px"></div>
+            <div class="mini-bar" style="height:18px"></div>
+            <div class="mini-bar" style="height:32px"></div>
+            <div class="mini-bar" style="height:28px"></div>
+            <div class="mini-bar" style="height:40px"></div>
+            <div class="mini-bar" style="height:35px"></div>
+            <div class="mini-bar" style="height:44px"></div>
+            <div class="mini-bar today" style="height:28px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Attendance -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">⏰ 今日考勤</span>
+          <span class="section-link" onclick="switchRole('employee')">详情 →</span>
+        </div>
+        <div class="att-list">
+          <div class="att-item">
+            <div class="att-status present"></div>
+            <span class="att-name">张师傅</span>
+            <span class="att-time">08:55</span>
+            <span class="att-tag normal">正常</span>
+          </div>
+          <div class="att-item">
+            <div class="att-status present"></div>
+            <span class="att-name">李师傅</span>
+            <span class="att-time">09:02</span>
+            <span class="att-tag late">迟到</span>
+          </div>
+          <div class="att-item">
+            <div class="att-status absent"></div>
+            <span class="att-name">王师傅</span>
+            <span class="att-time">——</span>
+            <span class="att-tag absent-tag">未打卡</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending -->
+      <div class="pending-bar">
+        🔔 <span>待处理：<span class="count">1</span>条请假 · <span class="count">3</span>条补卡</span>
+        <span class="arrow">›</span>
+      </div>
+    </div>
+
+    <!-- ====== EMPLOYEE HOME (Clock-in) ====== -->
+    <div class="page" id="page-employee-home">
+      <div class="clock-page">
+        <div class="clock-date">2026年6月8日</div>
+        <div class="clock-day">星期一</div>
+
+        <!-- Clock-in button (morning) -->
+        <div class="clock-circle done" onclick="clockAction(this, 0)">
+          <div class="clock-time">08:55</div>
+          <div class="clock-action">上班打卡</div>
+          <div class="clock-status-tag normal">✅ 正常</div>
+        </div>
+        <div class="clock-info">上班打卡 · 门店范围内</div>
+
+        <div class="clock-divider"></div>
+
+        <!-- Clock-out button (afternoon) -->
+        <div class="clock-circle" id="clockOutBtn" onclick="clockAction(this, 1)">
+          <div class="clock-time">--:--</div>
+          <div class="clock-action">下班签退</div>
+        </div>
+        <div class="clock-info" id="clockOutInfo">请在下班时点击签退</div>
+
+        <div class="clock-stats">
+          <div class="clock-stats-title">今日打卡记录</div>
+          <div class="clock-stats-row">
+            <span class="clock-stats-label">上班打卡</span>
+            <span class="clock-stats-value">08:55 · 正常</span>
+          </div>
+          <div class="clock-stats-row">
+            <span class="clock-stats-label">下班签退</span>
+            <span class="clock-stats-value" style="color:var(--neutral-400)">未签退</span>
+          </div>
+          <div class="clock-stats-row" style="border-top:0.5px solid var(--neutral-100); padding-top:10px; margin-top:6px;">
+            <span class="clock-stats-label">今日已工作</span>
+            <span class="clock-stats-value">3h 5min</span>
+          </div>
+        </div>
+
+        <div class="attendance-preview">
+          <div class="attendance-preview-header">
+            <span style="font-size:15px;font-weight:600;color:var(--neutral-800)">📅 我的考勤</span>
+            <span class="section-link">查看全部 →</span>
+          </div>
+          <div class="att-preview-stats">
+            <div class="att-preview-stat">
+              <div class="att-preview-num">18</div>
+              <div class="att-preview-label">出勤天数</div>
+            </div>
+            <div class="att-preview-stat">
+              <div class="att-preview-num" style="color:var(--warning)">1</div>
+              <div class="att-preview-label">迟到次数</div>
+            </div>
+            <div class="att-preview-stat">
+              <div class="att-preview-num">0</div>
+              <div class="att-preview-label">缺卡</div>
+            </div>
+          </div>
+          <!-- Mini Calendar -->
+          <div class="mini-cal" style="margin-top:12px">
+            <div class="mini-cal-header">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div class="mini-cal-grid" id="miniCalGrid">
+              <!-- filled by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== CUSTOMER HOME (Booking) ====== -->
+    <div class="page" id="page-customer-home">
+      <div class="store-banner">
+        <div class="store-banner-name">🏪 美丽源美容美发</div>
+        <div class="store-banner-info">距您 1.2km · 09:00-21:00</div>
+        <div class="store-banner-badge">🟢 营业中</div>
+      </div>
+
+      <div class="search-bar" onclick="showToast('搜索功能开发中')">
+        🔍 搜索服务...
+      </div>
+
+      <div class="category-pills">
+        <div class="cat-pill active" onclick="filterCategory(this)">全部</div>
+        <div class="cat-pill" onclick="filterCategory(this)">剪发</div>
+        <div class="cat-pill" onclick="filterCategory(this)">烫染</div>
+        <div class="cat-pill" onclick="filterCategory(this)">护理</div>
+        <div class="cat-pill" onclick="filterCategory(this)">美甲</div>
+      </div>
+
+      <div onclick="startBooking('洗剪吹', '¥68', '45分钟')">
+        <div class="service-card">
+          <div class="service-img">💇</div>
+          <div class="service-content">
+            <div class="service-name">洗剪吹</div>
+            <div class="service-desc">基础洗剪吹造型</div>
+            <div class="service-bottom">
+              <div class="service-price">¥68 <span>/次</span></div>
+              <div class="service-duration">⏱ 45分钟</div>
+            </div>
+          </div>
+          <button class="service-btn" onclick="event.stopPropagation(); startBooking('洗剪吹', '¥68', '45分钟')">预约</button>
+        </div>
+      </div>
+
+      <div onclick="startBooking('烫发', '¥380', '120分钟')">
+        <div class="service-card">
+          <div class="service-img">✨</div>
+          <div class="service-content">
+            <div class="service-name">烫发</div>
+            <div class="service-desc">冷烫/热烫任选</div>
+            <div class="service-bottom">
+              <div class="service-price">¥380 <span>/次</span></div>
+              <div class="service-duration">⏱ 120分钟</div>
+            </div>
+          </div>
+          <button class="service-btn" onclick="event.stopPropagation(); startBooking('烫发', '¥380', '120分钟')">预约</button>
+        </div>
+      </div>
+
+      <div onclick="startBooking('染发', '¥298', '90分钟')">
+        <div class="service-card">
+          <div class="service-img">🎨</div>
+          <div class="service-content">
+            <div class="service-name">染发</div>
+            <div class="service-desc">进口染膏 不伤发质</div>
+            <div class="service-bottom">
+              <div class="service-price">¥298 <span>/次</span></div>
+              <div class="service-duration">⏱ 90分钟</div>
+            </div>
+          </div>
+          <button class="service-btn" onclick="event.stopPropagation(); startBooking('染发', '¥298', '90分钟')">预约</button>
+        </div>
+      </div>
+
+      <div onclick="startBooking('头皮护理', '¥168', '60分钟')">
+        <div class="service-card">
+          <div class="service-img">🌿</div>
+          <div class="service-content">
+            <div class="service-name">头皮护理</div>
+            <div class="service-desc">深层清洁滋养</div>
+            <div class="service-bottom">
+              <div class="service-price">¥168 <span>/次</span></div>
+              <div class="service-duration">⏱ 60分钟</div>
+            </div>
+          </div>
+          <button class="service-btn" onclick="event.stopPropagation(); startBooking('头皮护理', '¥168', '60分钟')">预约</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== APPOINTMENTS PAGE ====== -->
+    <div class="page" id="page-appointments">
+      <div style="padding-top:8px">
+        <div class="section-header" style="margin-bottom:16px">
+          <span class="section-title">📅 预约排期</span>
+          <span style="font-size:13px;color:var(--neutral-500)">6月8日 星期一</span>
+        </div>
+        <div class="appt-list">
+          <div class="appt-item">
+            <span class="appt-time">10:00</span>
+            <div class="appt-info">
+              <div class="appt-name">张姐</div>
+              <div class="appt-service">洗剪吹 · 张师傅</div>
+            </div>
+            <span class="appt-price">¥68</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">10:30</span>
+            <div class="appt-info">
+              <div class="appt-name">李太</div>
+              <div class="appt-service">烫发 · 李师傅</div>
+            </div>
+            <span class="appt-price">¥380</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">11:00</span>
+            <div class="appt-info">
+              <div class="appt-name">王姐</div>
+              <div class="appt-service">染发 · 张师傅</div>
+            </div>
+            <span class="appt-price">¥298</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">13:00</span>
+            <div class="appt-info">
+              <div class="appt-name">赵姐</div>
+              <div class="appt-service">头皮护理 · 王师傅</div>
+            </div>
+            <span class="appt-price">¥168</span>
+          </div>
+          <div class="appt-item">
+            <span class="appt-time">14:30</span>
+            <div class="appt-info">
+              <div class="appt-name">陈太</div>
+              <div class="appt-service">洗剪吹 · 李师傅</div>
+            </div>
+            <span class="appt-price">¥68</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== MANAGEMENT PAGE (Boss only) ====== -->
+    <div class="page" id="page-management">
+      <div class="section-title" style="margin-bottom:16px">📊 门店管理</div>
+      <div class="mgmt-grid">
+        <div class="mgmt-item" onclick="navigateTo('users')">
+          <div class="mgmt-icon users">👥</div>
+          <div class="mgmt-label">用户管理</div>
+        </div>
+        <div class="mgmt-item" onclick="navigateTo('attendance-stats')">
+          <div class="mgmt-icon attendance">⏰</div>
+          <div class="mgmt-label">考勤统计</div>
+        </div>
+        <div class="mgmt-item" onclick="navigateTo('performance')">
+          <div class="mgmt-icon performance">📈</div>
+          <div class="mgmt-label">绩效管理</div>
+        </div>
+        <div class="mgmt-item" onclick="navigateTo('finance')">
+          <div class="mgmt-icon finance">💰</div>
+          <div class="mgmt-label">收支统计</div>
+        </div>
+        <div class="mgmt-item" onclick="navigateTo('services')">
+          <div class="mgmt-icon services">📝</div>
+          <div class="mgmt-label">服务项目</div>
+        </div>
+        <div class="mgmt-item" onclick="navigateTo('cards-mgmt')">
+          <div class="mgmt-icon cards">💳</div>
+          <div class="mgmt-label">卡券管理</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px;">
+        <div class="section-title" style="margin-bottom:12px">⚙️ 快捷操作</div>
+        <div class="menu-list">
+          <div class="menu-item" onclick="showToast('添加员工 — 可微信分享邀请链接')">
+            <span class="menu-icon">➕</span> 添加员工
+            <span class="menu-arrow">›</span>
+          </div>
+          <div class="menu-item" onclick="showToast('门店设置')">
+            <span class="menu-icon">⚙️</span> 门店设置
+            <span class="menu-arrow">›</span>
+          </div>
+          <div class="menu-item" onclick="showToast('数据导出 — V1.1 即将支持')">
+            <span class="menu-icon">📥</span> 数据导出
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== MESSAGES PAGE ====== -->
+    <div class="page" id="page-messages">
+      <div class="msg-item">
+        <div class="msg-dot"></div>
+        <div class="msg-content">
+          <div class="msg-title">请假审批提醒</div>
+          <div class="msg-body">张师傅提交了请假申请：6月12日 事假</div>
+          <div class="msg-time">10分钟前</div>
+        </div>
+      </div>
+      <div class="msg-item">
+        <div class="msg-dot"></div>
+        <div class="msg-content">
+          <div class="msg-title">补卡申请</div>
+          <div class="msg-body">李师傅申请补打 6月7日上班卡</div>
+          <div class="msg-time">1小时前</div>
+        </div>
+      </div>
+      <div class="msg-item">
+        <div class="msg-dot read"></div>
+        <div class="msg-content">
+          <div class="msg-title">预约提醒</div>
+          <div class="msg-body">您预约的「洗剪吹」将在1小时后开始</div>
+          <div class="msg-time">昨天 10:30</div>
+        </div>
+      </div>
+      <div class="msg-item">
+        <div class="msg-dot read"></div>
+        <div class="msg-content">
+          <div class="msg-title">工资条已发布</div>
+          <div class="msg-body">2026年5月工资条已发布，请查看</div>
+          <div class="msg-time">6月5日</div>
+        </div>
+      </div>
+      <div class="msg-item">
+        <div class="msg-dot read"></div>
+        <div class="msg-content">
+          <div class="msg-title">卡券即将过期</div>
+          <div class="msg-body">您的「烫发年卡」将于7天后到期</div>
+          <div class="msg-time">6月4日</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== MY PROFILE PAGE ====== -->
+    <div class="page" id="page-mine">
+      <div class="profile-card">
+        <div class="profile-header">
+          <div class="profile-avatar">😊</div>
+          <div class="profile-info">
+            <div class="profile-name">张老板</div>
+            <div class="profile-store">美丽源美容美发</div>
+          </div>
+        </div>
+        <div class="role-tag" onclick="toggleRolePanel()">
+          当前身份：🏪 老板 <span class="arrow">▼</span>
+        </div>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-item" onclick="switchRole('boss')">
+          <span class="menu-icon">🏪</span> 老板视图
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="switchRole('employee')">
+          <span class="menu-icon">✂️</span> 员工视图
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="switchRole('customer')">
+          <span class="menu-icon">💇</span> 顾客视图
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-item" onclick="navigateTo('my-cards')">
+          <span class="menu-icon">💳</span> 我的卡券
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="navigateTo('balance')">
+          <span class="menu-icon">💰</span> 我的余额
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="navigateTo('consumption')">
+          <span class="menu-icon">📋</span> 消费记录
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="menu-list">
+        <div class="menu-item" onclick="showToast('个人信息设置')">
+          <span class="menu-icon">👤</span> 个人信息
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="showToast('通知设置')">
+          <span class="menu-icon">🔔</span> 通知设置
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" onclick="showToast('关于门店管家 V1.0')">
+          <span class="menu-icon">ℹ️</span> 关于
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== FINANCE SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-finance">
+      <div class="finance-summary">
+        <div class="finance-total">¥34,180</div>
+        <div class="finance-period">2026年6月 · 净利润</div>
+
+        <div class="finance-breakdown">
+          <div class="finance-row" style="font-weight:600; color:var(--neutral-800);">
+            <span>📥 总收入</span>
+            <span>¥52,380</span>
+          </div>
+          <div class="finance-row indent"><span>服务收入</span><span>¥48,900</span></div>
+          <div class="finance-row indent"><span>卡券销售</span><span>¥2,500</span></div>
+          <div class="finance-row indent"><span>其他</span><span>¥980</span></div>
+
+          <div class="finance-divider"></div>
+
+          <div class="finance-row" style="font-weight:600;">
+            <span>📤 总支出</span>
+            <span>¥18,200</span>
+          </div>
+          <div class="finance-row indent"><span>房租</span><span>¥8,000</span></div>
+          <div class="finance-row indent"><span>工资</span><span>¥5,000</span></div>
+          <div class="finance-row indent"><span>产品进货</span><span>¥3,200</span></div>
+          <div class="finance-row indent"><span>水电</span><span>¥1,200</span></div>
+          <div class="finance-row indent"><span>其他</span><span>¥800</span></div>
+
+          <div class="finance-divider"></div>
+
+          <div class="finance-net">💰 净利润 ¥34,180</div>
+          <div style="font-size:13px;color:var(--neutral-500);margin-top:4px;">利润率 65.3%</div>
+        </div>
+      </div>
+
+      <!-- Mini bar chart for monthly trend -->
+      <div class="section-title" style="margin-bottom:12px">📊 近6个月营收趋势</div>
+      <div style="background:#FFF;border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow-xs)">
+        <div style="display:flex;align-items:flex-end;gap:12px;height:120px;justify-content:space-around">
+          <div style="text-align:center">
+            <div style="width:36px;height:40px;background:var(--primary-200);border-radius:6px 6px 0 0;margin:0 auto;"></div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">1月</div>
+          </div>
+          <div style="text-align:center">
+            <div style="width:36px;height:52px;background:var(--primary-200);border-radius:6px 6px 0 0;margin:0 auto;"></div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">2月</div>
+          </div>
+          <div style="text-align:center">
+            <div style="width:36px;height:65px;background:var(--primary-300);border-radius:6px 6px 0 0;margin:0 auto;"></div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">3月</div>
+          </div>
+          <div style="text-align:center">
+            <div style="width:36px;height:80px;background:var(--primary-400);border-radius:6px 6px 0 0;margin:0 auto;"></div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">4月</div>
+          </div>
+          <div style="text-align:center">
+            <div style="width:36px;height:96px;background:var(--primary-500);border-radius:6px 6px 0 0;margin:0 auto;"></div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">5月</div>
+          </div>
+          <div style="text-align:center">
+            <div style="width:36px;height:72px;background:var(--primary-400);border-radius:6px 6px 0 0;margin:0 auto;position:relative">
+              <div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--primary-500);font-weight:600">本月</div>
+            </div>
+            <div style="font-size:11px;color:var(--neutral-400);margin-top:6px">6月</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== BOOKING FLOW SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-booking">
+      <div class="booking-steps">
+        <div class="booking-step done"></div>
+        <div class="booking-step current"></div>
+        <div class="booking-step"></div>
+        <div class="booking-step"></div>
+      </div>
+
+      <div class="booking-section">
+        <div class="booking-section-title">📅 选择日期</div>
+        <div style="display:flex;gap:8px">
+          <div class="slot-item selected">今天<br>6/8</div>
+          <div class="slot-item">明天<br>6/9</div>
+          <div class="slot-item">后天<br>6/10</div>
+          <div class="slot-item">周四<br>6/11</div>
+        </div>
+      </div>
+
+      <div class="booking-section">
+        <div class="booking-section-title">🕐 选择时段</div>
+        <div class="slot-grid">
+          <div class="slot-item selected">09:00</div>
+          <div class="slot-item">09:30</div>
+          <div class="slot-item disabled">10:00</div>
+          <div class="slot-item">10:30</div>
+          <div class="slot-item disabled">11:00</div>
+          <div class="slot-item">11:30</div>
+          <div class="slot-item">13:00</div>
+          <div class="slot-item">13:30</div>
+          <div class="slot-item">14:00</div>
+        </div>
+      </div>
+
+      <div class="booking-section">
+        <div class="booking-section-title">✂️ 选择发型师（可选）</div>
+        <div class="employee-option" onclick="this.classList.toggle('selected')">
+          <div class="employee-avatar">💇‍♂️</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500;color:var(--neutral-800)">张师傅</div>
+            <div style="font-size:12px;color:var(--neutral-500)">高级理发师 · 8年经验</div>
+          </div>
+        </div>
+        <div class="employee-option selected" onclick="this.classList.toggle('selected')">
+          <div class="employee-avatar">💇</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:500;color:var(--neutral-800)">李师傅</div>
+            <div style="font-size:12px;color:var(--neutral-500)">资深发型师 · 5年经验</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--neutral-400);padding:8px 0;cursor:pointer" onclick="showToast('随机安排发型师')">
+          🎲 随机安排
+        </div>
+      </div>
+
+      <div class="booking-confirm" id="bookingConfirmCard">
+        <div class="section-title" style="margin-bottom:12px">📋 确认预约信息</div>
+        <div class="booking-confirm-row">
+          <span class="booking-confirm-label">服务项目</span>
+          <span class="booking-confirm-value" id="confirmService">洗剪吹</span>
+        </div>
+        <div class="booking-confirm-row">
+          <span class="booking-confirm-label">预约时间</span>
+          <span class="booking-confirm-value">6月8日 09:00</span>
+        </div>
+        <div class="booking-confirm-row">
+          <span class="booking-confirm-label">预计时长</span>
+          <span class="booking-confirm-value" id="confirmDuration">45分钟</span>
+        </div>
+        <div class="booking-confirm-row">
+          <span class="booking-confirm-label">发型师</span>
+          <span class="booking-confirm-value">李师傅</span>
+        </div>
+        <div class="booking-confirm-row">
+          <span class="booking-confirm-label">价格</span>
+          <span class="booking-confirm-value" style="color:var(--gold);font-size:20px" id="confirmPrice">¥68</span>
+        </div>
+      </div>
+
+      <button class="submit-btn" onclick="confirmBooking()">确认预约</button>
+    </div>
+
+    <!-- Success Overlay -->
+    <div class="success-overlay" id="successOverlay">
+      <div class="success-icon">✅</div>
+      <div class="success-title">预约成功！</div>
+      <div class="success-desc">6月8日 09:00 · 洗剪吹 · 李师傅</div>
+      <button class="success-btn" onclick="closeSuccess()">好的</button>
+    </div>
+
+    <!-- ====== USER MANAGEMENT SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-users">
+      <div class="section-title" style="margin-bottom:16px">👥 用户管理 · 共8人</div>
+      <div style="background:#FFF;border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-xs);margin-bottom:16px">
+        <div class="user-item">
+          <div class="user-avatar-circle boss-bg">👨‍💼</div>
+          <div class="user-info">
+            <div class="user-info-name">张建国</div>
+            <div class="user-info-role">138****8888</div>
+          </div>
+          <span class="user-role-badge boss">老板</span>
+        </div>
+        <div class="user-item">
+          <div class="user-avatar-circle emp-bg">💇‍♂️</div>
+          <div class="user-info">
+            <div class="user-info-name">张师傅</div>
+            <div class="user-info-role">139****6666</div>
+          </div>
+          <span class="user-role-badge employee">员工</span>
+        </div>
+        <div class="user-item">
+          <div class="user-avatar-circle emp-bg">💇</div>
+          <div class="user-info">
+            <div class="user-info-name">李师傅</div>
+            <div class="user-info-role">137****5555</div>
+          </div>
+          <span class="user-role-badge employee">员工</span>
+        </div>
+        <div class="user-item">
+          <div class="user-avatar-circle emp-bg">💇‍♀️</div>
+          <div class="user-info">
+            <div class="user-info-name">王师傅</div>
+            <div class="user-info-role">136****4444</div>
+          </div>
+          <span class="user-role-badge employee">员工</span>
+        </div>
+      </div>
+      <button class="submit-btn" onclick="showToast('添加员工 — 微信分享邀请链接')" style="margin-top:0">➕ 添加员工</button>
+    </div>
+
+    <!-- ====== ATTENDANCE STATS SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-attendance-stats">
+      <div class="att-calendar">
+        <div class="att-cal-header">
+          <span class="att-cal-nav">‹</span>
+          <span class="att-cal-month">2026年6月</span>
+          <span class="att-cal-nav">›</span>
+        </div>
+        <div class="att-legend">
+          <div class="att-legend-item"><span class="att-legend-dot present"></span> 正常</div>
+          <div class="att-legend-item"><span class="att-legend-dot late-d"></span> 迟到</div>
+          <div class="att-legend-item"><span class="att-legend-dot absent-d"></span> 缺卡</div>
+        </div>
+        <div class="mini-cal-header">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="mini-cal-grid" id="statsCalGrid">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:10px">📊 员工考勤汇总</div>
+      <div style="background:#FFF;border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-xs)">
+        <div class="att-item">
+          <div class="att-status present"></div>
+          <span class="att-name" style="font-weight:500">张师傅</span>
+          <span style="font-size:13px;color:var(--neutral-500);margin-right:auto">出勤 21天 · 迟到 2次</span>
+          <span style="font-size:14px;font-weight:600;color:var(--success)">100%</span>
+        </div>
+        <div class="att-item">
+          <div class="att-status present"></div>
+          <span class="att-name" style="font-weight:500">李师傅</span>
+          <span style="font-size:13px;color:var(--neutral-500);margin-right:auto">出勤 18天 · 迟到 1次</span>
+          <span style="font-size:14px;font-weight:600;color:var(--warning)">90%</span>
+        </div>
+        <div class="att-item">
+          <div class="att-status absent"></div>
+          <span class="att-name" style="font-weight:500">王师傅</span>
+          <span style="font-size:13px;color:var(--neutral-500);margin-right:auto">出勤 20天 · 迟到 0次</span>
+          <span style="font-size:14px;font-weight:600;color:var(--success)">95%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== PERFORMANCE SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-performance">
+      <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchPerfTab(this,0)">本月</button>
+        <button class="sub-tab" onclick="switchPerfTab(this,1)">上月</button>
+        <button class="sub-tab" onclick="switchPerfTab(this,2)">本季度</button>
+      </div>
+
+      <div class="perf-card-summary">
+        <div class="perf-top-title">🏆 本月业绩冠军</div>
+        <div class="perf-top-name">张师傅</div>
+        <div class="perf-top-amount">¥18,500</div>
+        <div style="font-size:13px;color:var(--neutral-500);margin-top:4px">提成 ¥3,200 · 服务 128单</div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:10px">📈 业绩排行</div>
+      <div style="background:#FFF;border-radius:var(--radius-md);padding:12px 16px;box-shadow:var(--shadow-xs)">
+        <div class="perf-rank-item">
+          <div class="perf-rank-num r1">1</div>
+          <div class="perf-rank-info">
+            <div class="perf-rank-name">张师傅</div>
+            <div class="perf-rank-service">剪发 82 · 烫染 36 · 护理 10</div>
+          </div>
+          <div class="perf-rank-amount">¥18,500</div>
+        </div>
+        <div class="perf-rank-item">
+          <div class="perf-rank-num r2">2</div>
+          <div class="perf-rank-info">
+            <div class="perf-rank-name">李师傅</div>
+            <div class="perf-rank-service">剪发 68 · 烫染 28 · 护理 8</div>
+          </div>
+          <div class="perf-rank-amount">¥14,200</div>
+        </div>
+        <div class="perf-rank-item">
+          <div class="perf-rank-num r3">3</div>
+          <div class="perf-rank-info">
+            <div class="perf-rank-name">王师傅</div>
+            <div class="perf-rank-service">剪发 56 · 烫染 22 · 护理 12</div>
+          </div>
+          <div class="perf-rank-amount">¥12,800</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SERVICE ITEMS SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-services">
+      <div class="section-title" style="margin-bottom:16px">📝 服务项目 · 共12项</div>
+
+      <div class="service-mgmt-item">
+        <div class="service-mgmt-icon haircut">💇</div>
+        <div class="service-mgmt-content">
+          <div class="service-mgmt-name">洗剪吹</div>
+          <div class="service-mgmt-meta">基础洗剪吹造型 · 45分钟</div>
+          <div class="service-mgmt-price">¥68</div>
+        </div>
+        <div class="service-mgmt-switch" onclick="showToast('洗剪吹 — 已上架')"></div>
+      </div>
+
+      <div class="service-mgmt-item">
+        <div class="service-mgmt-icon perm">✨</div>
+        <div class="service-mgmt-content">
+          <div class="service-mgmt-name">烫发</div>
+          <div class="service-mgmt-meta">冷烫/热烫任选 · 120分钟</div>
+          <div class="service-mgmt-price">¥380</div>
+        </div>
+        <div class="service-mgmt-switch" onclick="showToast('烫发 — 已上架')"></div>
+      </div>
+
+      <div class="service-mgmt-item">
+        <div class="service-mgmt-icon color">🎨</div>
+        <div class="service-mgmt-content">
+          <div class="service-mgmt-name">染发</div>
+          <div class="service-mgmt-meta">进口染膏 不伤发质 · 90分钟</div>
+          <div class="service-mgmt-price">¥298</div>
+        </div>
+        <div class="service-mgmt-switch" onclick="showToast('染发 — 已上架')"></div>
+      </div>
+
+      <div class="service-mgmt-item">
+        <div class="service-mgmt-icon care">🌿</div>
+        <div class="service-mgmt-content">
+          <div class="service-mgmt-name">头皮护理</div>
+          <div class="service-mgmt-meta">深层清洁滋养 · 60分钟</div>
+          <div class="service-mgmt-price">¥168</div>
+        </div>
+        <div class="service-mgmt-switch" onclick="showToast('头皮护理 — 已上架')"></div>
+      </div>
+
+      <button class="submit-btn" onclick="showToast('添加新服务')">➕ 添加服务项目</button>
+    </div>
+
+    <!-- ====== CARD/VOUCHER MANAGEMENT SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-cards-mgmt">
+      <div class="section-title" style="margin-bottom:16px">💳 卡券管理 · 共3种</div>
+
+      <div class="card-mgmt-item">
+        <div class="card-mgmt-header">
+          <div>
+            <div class="card-mgmt-name">VIP会员卡</div>
+            <div style="font-size:13px;color:var(--neutral-500);margin-top:4px">充值满1000享9折 · 有效期1年</div>
+          </div>
+          <span class="card-mgmt-type vip">会员卡</span>
+        </div>
+        <div class="card-mgmt-stats">
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">56</div>
+            <div class="card-mgmt-stat-label">持卡人数</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num" style="color:var(--gold)">¥32,800</div>
+            <div class="card-mgmt-stat-label">储值总额</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">¥18,500</div>
+            <div class="card-mgmt-stat-label">本月消费</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-mgmt-item">
+        <div class="card-mgmt-header">
+          <div>
+            <div class="card-mgmt-name">烫发年卡</div>
+            <div style="font-size:13px;color:var(--neutral-500);margin-top:4px">一年内不限次数烫发 · ¥2,999</div>
+          </div>
+          <span class="card-mgmt-type times">次卡</span>
+        </div>
+        <div class="card-mgmt-stats">
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">32</div>
+            <div class="card-mgmt-stat-label">持卡人数</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">128</div>
+            <div class="card-mgmt-stat-label">已用次数</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">¥92,800</div>
+            <div class="card-mgmt-stat-label">销售收入</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-mgmt-item">
+        <div class="card-mgmt-header">
+          <div>
+            <div class="card-mgmt-name">新人体验券</div>
+            <div style="font-size:13px;color:var(--neutral-500);margin-top:4px">洗剪吹5折 · 限新用户 · 有效期30天</div>
+          </div>
+          <span class="card-mgmt-type voucher">优惠券</span>
+        </div>
+        <div class="card-mgmt-stats">
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">245</div>
+            <div class="card-mgmt-stat-label">已发放</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">68</div>
+            <div class="card-mgmt-stat-label">已核销</div>
+          </div>
+          <div class="card-mgmt-stat">
+            <div class="card-mgmt-stat-num">27.8%</div>
+            <div class="card-mgmt-stat-label">核销率</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="submit-btn" onclick="showToast('创建新卡券')">➕ 新建卡券</button>
+    </div>
+
+    <!-- ====== MY CARDS (Customer) SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-my-cards">
+      <div class="section-title" style="margin-bottom:16px">💳 我的卡券</div>
+
+      <div class="customer-card-item vip-card">
+        <div class="ccard-type">VIP会员卡</div>
+        <div class="ccard-name">美丽源 VIP</div>
+        <div class="ccard-remaining">余额 ¥1,280 · 享9折优惠</div>
+        <div class="ccard-footer">
+          <span>有效期至 2027-03-15</span>
+          <span>卡号 VIP20260315</span>
+        </div>
+      </div>
+
+      <div class="customer-card-item times-card">
+        <div class="ccard-type">烫发年卡</div>
+        <div class="ccard-name">不限次烫发</div>
+        <div class="ccard-remaining">已用 3次 · 不限次数</div>
+        <div class="ccard-footer">
+          <span>有效期至 2027-01-20</span>
+          <span>年卡 · ¥2,999购</span>
+        </div>
+      </div>
+
+      <div class="customer-card-item">
+        <div class="ccard-type">次卡</div>
+        <div class="ccard-name">头皮护理 10次卡</div>
+        <div class="ccard-remaining">剩余 7次 · 共10次</div>
+        <div class="ccard-footer">
+          <span>有效期至 2026-12-31</span>
+          <span>¥1,680购</span>
+        </div>
+      </div>
+
+      <div style="background:var(--warning-light);border-radius:var(--radius-md);padding:14px 16px;font-size:13px;color:var(--neutral-700);margin-top:8px">
+        ⚠️ 新人体验券 还剩 7天到期，请尽快使用
+      </div>
+    </div>
+
+    <!-- ====== BALANCE (Customer) SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-balance">
+      <div class="balance-header-card">
+        <div class="balance-label">账户余额</div>
+        <div class="balance-amount">¥1,280.00</div>
+        <div style="font-size:13px;opacity:0.7">VIP会员 · 享9折优惠</div>
+        <div class="balance-actions">
+          <button class="balance-btn recharge" onclick="showToast('充值功能开发中')">充值</button>
+          <button class="balance-btn history" onclick="showToast('查看明细')">查看明细</button>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-bottom:10px">📋 最近变动</div>
+      <div class="balance-record">
+        <div class="balance-record-left">
+          <div class="balance-record-title">充值</div>
+          <div class="balance-record-time">6月5日 14:30</div>
+        </div>
+        <div class="balance-record-amount plus">+¥500</div>
+      </div>
+      <div class="balance-record">
+        <div class="balance-record-left">
+          <div class="balance-record-title">消费 · 烫发</div>
+          <div class="balance-record-time">6月2日 11:20</div>
+        </div>
+        <div class="balance-record-amount minus">-¥342</div>
+      </div>
+      <div class="balance-record">
+        <div class="balance-record-left">
+          <div class="balance-record-title">消费 · 洗剪吹</div>
+          <div class="balance-record-time">5月28日 16:00</div>
+        </div>
+        <div class="balance-record-amount minus">-¥61.2</div>
+      </div>
+      <div class="balance-record">
+        <div class="balance-record-left">
+          <div class="balance-record-title">充值</div>
+          <div class="balance-record-time">5月20日 10:15</div>
+        </div>
+        <div class="balance-record-amount plus">+¥1,000</div>
+      </div>
+    </div>
+
+    <!-- ====== CONSUMPTION RECORDS (Customer) SUB-PAGE ====== -->
+    <div class="page finance-page" id="page-consumption">
+      <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchConsumeTab(this,0)">全部</button>
+        <button class="sub-tab" onclick="switchConsumeTab(this,1)">本月</button>
+        <button class="sub-tab" onclick="switchConsumeTab(this,2)">上月</button>
+      </div>
+
+      <div class="consumption-item">
+        <div class="consume-left">
+          <div class="consume-service">烫发</div>
+          <div class="consume-meta">6月2日 11:20 · 李师傅</div>
+        </div>
+        <div style="text-align:right">
+          <div class="consume-amount">¥342</div>
+          <div class="consume-method">余额支付 · 9折</div>
+        </div>
+      </div>
+      <div class="consumption-item">
+        <div class="consume-left">
+          <div class="consume-service">洗剪吹</div>
+          <div class="consume-meta">5月28日 16:00 · 张师傅</div>
+        </div>
+        <div style="text-align:right">
+          <div class="consume-amount">¥61.2</div>
+          <div class="consume-method">余额支付 · 9折</div>
+        </div>
+      </div>
+      <div class="consumption-item">
+        <div class="consume-left">
+          <div class="consume-service">头皮护理</div>
+          <div class="consume-meta">5月15日 14:30 · 王师傅</div>
+        </div>
+        <div style="text-align:right">
+          <div class="consume-amount">¥151.2</div>
+          <div class="consume-method">次卡扣减 · 剩余8次</div>
+        </div>
+      </div>
+      <div class="consumption-item">
+        <div class="consume-left">
+          <div class="consume-service">洗剪吹</div>
+          <div class="consume-meta">5月8日 10:00 · 张师傅</div>
+        </div>
+        <div style="text-align:right">
+          <div class="consume-amount">¥61.2</div>
+          <div class="consume-method">余额支付 · 9折</div>
+        </div>
+      </div>
+      <div class="consumption-item">
+        <div class="consume-left">
+          <div class="consume-service">染发</div>
+          <div class="consume-meta">4月25日 13:00 · 李师傅</div>
+        </div>
+        <div style="text-align:right">
+          <div class="consume-amount">¥268.2</div>
+          <div class="consume-method">余额支付 · 9折</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:24px;color:var(--neutral-400);font-size:13px">
+        — 仅显示最近30条 —
+      </div>
+    </div>
+  </div>
+
+  <!-- TabBar -->
+  <div class="tabbar" id="tabBar">
+    <button class="tab-item active" data-tab="home" onclick="switchTab('home')">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <span>首页</span>
+    </button>
+    <button class="tab-item" data-tab="appointments" onclick="switchTab('appointments')">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <span>预约</span>
+    </button>
+    <button class="tab-item" data-tab="management" id="tabManagement" onclick="switchTab('management')">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="6" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="12" y2="16"/></svg>
+      </div>
+      <span>管理</span>
+    </button>
+    <button class="tab-item" data-tab="messages" onclick="switchTab('messages')">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="badge">4</div>
+      </div>
+      <span>消息</span>
+    </button>
+    <button class="tab-item" data-tab="mine" onclick="switchTab('mine')">
+      <div class="tab-icon-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <span>我的</span>
+    </button>
+  </div>
+
+  <!-- Role Switcher Panel -->
+  <div class="overlay" id="roleOverlay" onclick="closeRolePanel(event)">
+    <div class="role-panel" onclick="event.stopPropagation()">
+      <div class="role-panel-title">切换身份</div>
+      <div class="role-option current" onclick="switchRole('boss')">
+        <div class="role-option-icon boss">🏪</div>
+        <div class="role-option-info">
+          <div class="role-option-name">老板</div>
+          <div class="role-option-desc">管理门店、查看全部数据</div>
+        </div>
+        <div class="role-option-check">✓</div>
+      </div>
+      <div class="role-option" onclick="switchRole('employee')">
+        <div class="role-option-icon employee">✂️</div>
+        <div class="role-option-info">
+          <div class="role-option-name">员工</div>
+          <div class="role-option-desc">打卡、请假、查看工资条</div>
+        </div>
+        <div class="role-option-check">✓</div>
+      </div>
+      <div class="role-option" onclick="switchRole('customer')">
+        <div class="role-option-icon customer">💇</div>
+        <div class="role-option-info">
+          <div class="role-option-name">顾客</div>
+          <div class="role-option-desc">预约服务、查看卡券余额</div>
+        </div>
+        <div class="role-option-check">✓</div>
+      </div>
+      <button class="role-panel-close" onclick="closeRolePanel()">取消</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ========================================
+// App State
+// ========================================
+const state = {
+  currentRole: 'boss',
+  currentTab: 'home',
+  currentSubPage: null,
+  clockedIn: true,
+  clockedOut: false,
+};
+
+// ========================================
+// Tab Switching
+// ========================================
+function switchTab(tab) {
+  state.currentTab = tab;
+  state.currentSubPage = null;
+
+  // Update TabBar active state
+  document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+  const tabEl = document.querySelector(`.tab-item[data-tab="${tab}"]`);
+  if (tabEl) tabEl.classList.add('active');
+
+  // Update NavBar
+  updateNavBar();
+
+  // Show correct page based on role
+  showPageForRole(tab);
+}
+
+function showPageForRole(tab) {
+  // Hide all pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.finance-page').forEach(p => p.classList.remove('active'));
+
+  // Hide back button
+  document.getElementById('backBtn').style.display = 'none';
+
+  if (tab === 'home') {
+    if (state.currentRole === 'boss') document.getElementById('page-boss-home').classList.add('active');
+    else if (state.currentRole === 'employee') document.getElementById('page-employee-home').classList.add('active');
+    else document.getElementById('page-customer-home').classList.add('active');
+    document.getElementById('navTitle').textContent = '美丽源美容美发';
+  } else if (tab === 'appointments') {
+    document.getElementById('page-appointments').classList.add('active');
+    document.getElementById('navTitle').textContent = '预约排期';
+  } else if (tab === 'management') {
+    document.getElementById('page-management').classList.add('active');
+    document.getElementById('navTitle').textContent = '门店管理';
+  } else if (tab === 'messages') {
+    document.getElementById('page-messages').classList.add('active');
+    document.getElementById('navTitle').textContent = '消息中心';
+  } else if (tab === 'mine') {
+    document.getElementById('page-mine').classList.add('active');
+    document.getElementById('navTitle').textContent = '我的';
+  }
+
+  // Scroll to top
+  document.getElementById('content').scrollTop = 0;
+}
+
+function updateNavBar() {
+  const backBtn = document.getElementById('backBtn');
+  if (state.currentSubPage) {
+    backBtn.style.display = 'block';
+  } else {
+    backBtn.style.display = 'none';
+  }
+}
+
+// ========================================
+// Role Switching
+// ========================================
+function switchRole(role) {
+  state.currentRole = role;
+
+  // Update role panel
+  document.querySelectorAll('.role-option').forEach(el => el.classList.remove('current'));
+  const roleMap = { boss: 0, employee: 1, customer: 2 };
+  const idx = roleMap[role];
+  if (idx !== undefined) {
+    document.querySelectorAll('.role-option')[idx].classList.add('current');
+  }
+
+  // Update TabBar visibility
+  updateTabBar();
+
+  // Update role tag
+  const roleNames = { boss: '🏪 老板', employee: '✂️ 员工', customer: '💇 顾客' };
+  const roleTag = document.querySelector('.role-tag');
+  if (roleTag) roleTag.innerHTML = `当前身份：${roleNames[role]} <span class="arrow">▼</span>`;
+
+  // Refresh current tab
+  showPageForRole(state.currentTab);
+
+  // Close panel
+  closeRolePanel();
+}
+
+function updateTabBar() {
+  const mgmtTab = document.getElementById('tabManagement');
+  if (state.currentRole === 'boss') {
+    mgmtTab.style.display = '';
+    // Adjust tab width for 5 tabs
+    document.querySelectorAll('.tab-item').forEach(el => el.style.flex = '1');
+  } else {
+    mgmtTab.style.display = 'none';
+    // Adjust for 4 tabs
+    const visibleTabs = document.querySelectorAll('.tab-item:not([data-tab="management"])');
+    visibleTabs.forEach(el => el.style.flex = '1');
+  }
+}
+
+function toggleRolePanel() {
+  document.getElementById('roleOverlay').classList.add('show');
+}
+
+function closeRolePanel(e) {
+  if (e && e.target !== document.getElementById('roleOverlay')) return;
+  document.getElementById('roleOverlay').classList.remove('show');
+}
+
+// ========================================
+// Sub-page Navigation
+// ========================================
+function navigateTo(page) {
+  state.currentSubPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.finance-page').forEach(p => p.classList.remove('active'));
+
+  const backBtn = document.getElementById('backBtn');
+  backBtn.style.display = 'block';
+
+  const pageMap = {
+    'finance':        { id: 'page-finance',         title: '收支统计' },
+    'booking':        { id: 'page-booking',          title: '预约服务' },
+    'users':          { id: 'page-users',            title: '用户管理' },
+    'attendance-stats': { id: 'page-attendance-stats', title: '考勤统计' },
+    'performance':    { id: 'page-performance',      title: '绩效管理' },
+    'services':       { id: 'page-services',         title: '服务项目' },
+    'cards-mgmt':     { id: 'page-cards-mgmt',       title: '卡券管理' },
+    'my-cards':       { id: 'page-my-cards',         title: '我的卡券' },
+    'balance':        { id: 'page-balance',          title: '我的余额' },
+    'consumption':    { id: 'page-consumption',      title: '消费记录' },
+  };
+
+  const target = pageMap[page];
+  if (target) {
+    const el = document.getElementById(target.id);
+    if (el) el.classList.add('active');
+    document.getElementById('navTitle').textContent = target.title;
+  }
+
+  document.getElementById('content').scrollTop = 0;
+
+  // Generate attendance calendar if navigating to that page
+  if (page === 'attendance-stats') generateStatsCalendar();
+}
+
+function goBack() {
+  if (state.currentSubPage) {
+    state.currentSubPage = null;
+    document.getElementById('backBtn').style.display = 'none';
+    showPageForRole(state.currentTab);
+    document.getElementById('content').scrollTop = 0;
+  }
+}
+
+// ========================================
+// Booking Flow
+// ========================================
+function startBooking(service, price, duration) {
+  document.getElementById('confirmService').textContent = service;
+  document.getElementById('confirmPrice').textContent = price;
+  document.getElementById('confirmDuration').textContent = duration;
+  navigateTo('booking');
+}
+
+function confirmBooking() {
+  document.getElementById('successOverlay').classList.add('show');
+}
+
+function closeSuccess() {
+  document.getElementById('successOverlay').classList.remove('show');
+  goBack();
+  showToast('预约成功！6月8日 09:00');
+}
+
+// ========================================
+// Clock-in / Clock-out
+// ========================================
+function clockAction(el, type) {
+  if (type === 0) {
+    showToast('上班已打卡 08:55');
+    return;
+  }
+
+  if (state.clockedOut) return;
+
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const timeStr = `${h}:${m}`;
+
+  el.classList.add('done', 'pulse');
+  el.querySelector('.clock-time').textContent = timeStr;
+  el.querySelector('.clock-action').textContent = '下班签退';
+  el.innerHTML = `
+    <div class="clock-time">${timeStr}</div>
+    <div class="clock-action">下班签退</div>
+    <div class="clock-status-tag normal">✅ 正常</div>
+  `;
+
+  document.getElementById('clockOutInfo').textContent = `下班打卡 · 今日工作 8h 10min`;
+  state.clockedOut = true;
+
+  // Update stats
+  const statsRow = document.querySelectorAll('.clock-stats-row')[1];
+  if (statsRow) statsRow.querySelector('.clock-stats-value').textContent = `${timeStr} · 正常`;
+
+  setTimeout(() => el.classList.remove('pulse'), 800);
+  showToast(`下班签退成功 ${timeStr}`);
+}
+
+// ========================================
+// Category Filter
+// ========================================
+function filterCategory(el) {
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ========================================
+// Toast
+// ========================================
+let toastTimeout;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ========================================
+// Mini Calendar
+// ========================================
+function generateMiniCalendar() {
+  const grid = document.getElementById('miniCalGrid');
+  if (!grid) return;
+
+  const days = [];
+  // June 2026 starts on Monday
+  // 6/1 = Monday
+  for (let i = 0; i < 35; i++) {
+    if (i < 7 && i >= 0) {
+      const day = i + 1;
+      let cls = '';
+      if (day === 8) cls = 'today';
+      else if (day === 7) cls = 'late';
+      else if (day > 8) cls = 'absent'; // future days
+
+      days.push(`<div class="mini-cal-day ${cls}">${day}</div>`);
+    } else if (i < 7) {
+      days.push(`<div class="mini-cal-day absent">${i-6}</div>`);
+    } else {
+      // Remaining days for June (up to 30)
+      const day = i - 6;
+      if (day <= 30) {
+        let cls = '';
+        if (day === 8) cls = 'today';
+        else if (day === 3 || day === 7) cls = 'late';
+        days.push(`<div class="mini-cal-day ${cls}">${day}</div>`);
+      } else {
+        days.push(`<div class="mini-cal-day absent"></div>`);
+      }
+    }
+  }
+
+  grid.innerHTML = days.join('');
+}
+
+// ========================================
+// Sub-tab Switchers
+// ========================================
+function switchPerfTab(el, idx) {
+  document.querySelectorAll('#page-performance .sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  showToast('切换到 ' + (['本月','上月','本季度'])[idx]);
+}
+
+function switchConsumeTab(el, idx) {
+  document.querySelectorAll('#page-consumption .sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  showToast('切换到 ' + (['全部','本月','上月'])[idx]);
+}
+
+// ========================================
+// Attendance Stats Calendar
+// ========================================
+function generateStatsCalendar() {
+  const grid = document.getElementById('statsCalGrid');
+  if (!grid) return;
+
+  const days = [];
+  for (let i = 0; i < 35; i++) {
+    if (i >= 0 && i < 7) {
+      const day = i + 1;
+      let cls = '';
+      if (day === 8) cls = 'mini-cal-day today';
+      else if (day === 3 || day === 7) cls = 'mini-cal-day late';
+      else if (day > 8) cls = 'mini-cal-day absent';
+      else cls = 'mini-cal-day';
+      days.push(`<div class="${cls}">${day}</div>`);
+    } else {
+      const day = i - 6;
+      if (day <= 30) {
+        let cls = 'mini-cal-day';
+        if (day === 8) cls = 'mini-cal-day today';
+        else if (day === 3 || day === 7 || day === 15) cls = 'mini-cal-day late';
+        days.push(`<div class="${cls}">${day}</div>`);
+      } else {
+        days.push(`<div class="mini-cal-day absent"></div>`);
+      }
+    }
+  }
+
+  grid.innerHTML = days.join('');
+}
+
+// ========================================
+// Init
+// ========================================
+function init() {
+  updateTabBar();
+  showPageForRole('home');
+  generateMiniCalendar();
+}
+
+init();
+</script>
+</body>
+</html>
