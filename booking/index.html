@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>美约日程 — 护肤品区域服务管理平台</title>
+<style>
+/* ============================================
+   Design Tokens — 粉色主题设计系统
+   ============================================ */
+:root {
+  /* Pink Primary Palette */
+  --pink-50:  #FFF0F5;
+  --pink-100: #FFE0EB;
+  --pink-200: #FFB8D0;
+  --pink-300: #FF8AB5;
+  --pink-400: #FF5C9E;
+  --pink-500: #EC407A;
+  --pink-600: #D81B60;
+  --pink-700: #C2185B;
+  --pink-800: #AD1457;
+  --pink-900: #880E4F;
+
+  /* Neutral — warm-tinted (never pure black/white) */
+  --bg-page:      #FFF5F7;
+  --bg-card:      #FFFFFF;
+  --bg-group:     #FFF0F3;
+  --border-light: #F0E0E5;
+  --border:       #E8D5DB;
+  --text-primary: #2D1B23;
+  --text-secondary: #6B5A62;
+  --text-tertiary: #9B8A92;
+  --text-disabled: #C5B8BE;
+  --text-inverse:  #FFFFFF;
+
+  /* Semantic */
+  --success:      #66BB6A;
+  --success-bg:   #E8F5E9;
+  --warning:      #FFA726;
+  --warning-bg:   #FFF3E0;
+  --error:        #EF5350;
+  --error-bg:     #FFEBEE;
+  --info:         #42A5F5;
+  --info-bg:      #E3F2FD;
+
+  /* Calendar teacher colors */
+  --teacher-a:    #EC407A;
+  --teacher-b:    #AB47BC;
+  --teacher-c:    #26A69A;
+  --teacher-d:    #FF7043;
+
+  /* Spacing (8px base) */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  12px;
+  --space-lg:  16px;
+  --space-xl:  20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+
+  /* Radius */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-full: 999px;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(140, 20, 60, 0.06);
+  --shadow-md:  0 4px 12px rgba(140, 20, 60, 0.08);
+  --shadow-lg:  0 8px 24px rgba(140, 20, 60, 0.12);
+
+  /* Typography */
+  --font-stack: "PingFang SC", -apple-system, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --font-mono:  "SF Mono", "Menlo", "Consolas", monospace;
+
+  /* Transitions */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+}
+
+/* Reset & Global */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--font-stack);
+  background: #F5F0F2;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
+
+/* Phone Frame */
+.phone-frame {
+  width: 375px;
+  height: 812px;
+  background: var(--bg-page);
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 0 0 3px #1a1a1a,
+    0 0 0 6px #2d2d2d,
+    0 0 0 8px #1a1a1a,
+    0 20px 60px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Status Bar */
+.status-bar {
+  height: 44px;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.status-bar .time { margin-left: 8px; }
+.status-bar .icons { display: flex; gap: 6px; align-items: center; }
+.status-bar .icons svg { width: 14px; height: 14px; }
+
+/* Nav Header */
+.nav-header {
+  height: 44px;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-lg);
+  position: relative;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.nav-header .title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.nav-header .btn-back {
+  position: absolute;
+  left: var(--space-lg);
+  background: none;
+  border: none;
+  color: var(--pink-500);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  display: none;
+}
+.nav-header .btn-action {
+  position: absolute;
+  right: var(--space-lg);
+  background: none;
+  border: none;
+  color: var(--pink-500);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Page Container */
+.page-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.page-container::-webkit-scrollbar { width: 0; }
+
+.page {
+  display: none;
+  min-height: 100%;
+  padding-bottom: 60px;
+}
+.page.active { display: block; }
+
+/* Bottom Tab Bar */
+.tab-bar {
+  height: 50px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color var(--duration-fast);
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+.tab-item.active { color: var(--pink-500); }
+.tab-item svg { width: 22px; height: 22px; }
+.tab-item .tab-dot { display: none; }
+.tab-item.active .tab-dot { display: block; }
+.tab-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--pink-500);
+  margin-top: 1px;
+}
+
+/* ============================================
+   Components
+   ============================================ */
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin: var(--space-md) var(--space-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+.card-flush {
+  background: var(--bg-card);
+  border-radius: 0;
+  padding: var(--space-lg);
+  margin: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 44px;
+  padding: 0 var(--space-xl);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  font-family: var(--font-stack);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: var(--pink-500);
+  color: var(--text-inverse);
+  box-shadow: 0 2px 8px rgba(236, 64, 122, 0.3);
+}
+.btn-primary:active { background: var(--pink-600); }
+.btn-secondary {
+  background: transparent;
+  color: var(--pink-500);
+  border: 1.5px solid var(--pink-300);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--pink-500);
+}
+.btn-danger {
+  background: var(--error);
+  color: #fff;
+}
+.btn-sm { height: 32px; padding: 0 var(--space-md); font-size: 13px; }
+.btn-block { width: 100%; }
+.btn-round {
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-2xl);
+}
+
+/* Pill / Chip */
+.pill-group { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.pill {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  background: var(--bg-group);
+  color: var(--text-secondary);
+  border: none;
+  font-family: var(--font-stack);
+  -webkit-tap-highlight-color: transparent;
+}
+.pill.active {
+  background: var(--pink-500);
+  color: #fff;
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-error { background: var(--error-bg); color: var(--error); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+.badge-neutral { background: var(--bg-group); color: var(--text-tertiary); }
+
+/* Form */
+.form-group { margin-bottom: var(--space-lg); }
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--space-md);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  background: var(--bg-card);
+  transition: border-color var(--duration-fast);
+  outline: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--pink-400);
+  box-shadow: 0 0 0 3px rgba(236, 64, 122, 0.08);
+}
+.form-textarea {
+  height: auto;
+  min-height: 80px;
+  padding: var(--space-md);
+  resize: vertical;
+}
+
+/* List Item */
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+  gap: var(--space-md);
+  -webkit-tap-highlight-color: transparent;
+}
+.list-item:active { background: var(--bg-group); }
+.list-item-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+.list-item-body { flex: 1; min-width: 0; }
+.list-item-title { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+.list-item-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.list-item-arrow { color: var(--text-disabled); font-size: 16px; }
+
+/* Section header */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) var(--space-lg) var(--space-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px var(--space-2xl);
+  text-align: center;
+  color: var(--text-tertiary);
+}
+.empty-state-icon { font-size: 48px; margin-bottom: var(--space-lg); opacity: 0.6; }
+.empty-state-text { font-size: 14px; margin-bottom: var(--space-lg); }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-primary);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-normal);
+}
+.toast.show { opacity: 1; }
+
+/* Modal */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+.modal-sheet {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  width: 100%;
+  max-height: 70%;
+  overflow-y: auto;
+  padding: var(--space-xl);
+  animation: slideUp 0.3s var(--ease-out-expo);
+}
+.modal-handle {
+  width: 36px; height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto var(--space-lg);
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ============================================
+   Login Page
+   ============================================ */
+.login-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px var(--space-2xl) 0;
+  text-align: center;
+  min-height: 100%;
+}
+.login-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-xl);
+  box-shadow: 0 8px 24px rgba(236, 64, 122, 0.25);
+}
+.login-logo svg { width: 40px; height: 40px; color: #fff; }
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+.login-subtitle {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  margin-top: var(--space-sm);
+  margin-bottom: 48px;
+}
+.login-tagline {
+  font-size: 13px;
+  color: var(--pink-500);
+  font-weight: 500;
+  margin-bottom: 48px;
+  letter-spacing: 1px;
+}
+.login-btn-wechat {
+  width: 100%;
+  height: 50px;
+  background: #07C160;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-stack);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+  box-shadow: 0 2px 8px rgba(7,193,96,0.3);
+}
+.login-btn-wechat:active { opacity: 0.9; }
+.login-btn-guest {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-stack);
+  padding: var(--space-md);
+}
+.login-footer {
+  margin-top: auto;
+  padding-bottom: 40px;
+  font-size: 11px;
+  color: var(--text-disabled);
+}
+
+/* ============================================
+   Calendar Component
+   ============================================ */
+.calendar { padding: 0 var(--space-lg); }
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) 0;
+}
+.calendar-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.calendar-nav { display: flex; gap: var(--space-sm); }
+.calendar-nav-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: all var(--duration-fast);
+}
+.calendar-nav-btn:active { background: var(--bg-group); }
+.calendar-nav-today {
+  height: 32px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--pink-300);
+  background: var(--bg-card);
+  color: var(--pink-500);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-stack);
+}
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  padding: var(--space-sm) 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--duration-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.calendar-day:hover { background: var(--bg-group); }
+.calendar-day.today {
+  background: var(--pink-500);
+  color: #fff;
+  font-weight: 600;
+}
+.calendar-day.selected {
+  background: var(--pink-100);
+  color: var(--pink-700);
+  font-weight: 600;
+}
+.calendar-day.other-month { color: var(--text-disabled); }
+.calendar-day .day-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 1px;
+}
+.calendar-day .day-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+}
+.calendar-day .day-dot.pink { background: var(--pink-500); }
+.calendar-day .day-dot.purple { background: var(--teacher-b); }
+.calendar-day .day-dot.leave { background: var(--text-disabled); }
+
+/* Schedule Cards below calendar */
+.schedule-list { padding: 0 var(--space-lg) var(--space-lg); }
+.schedule-date-header {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.schedule-date-header .count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+.schedule-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-sm);
+  border-left: 3px solid var(--pink-500);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.schedule-card.leave { border-left-color: var(--text-disabled); opacity: 0.7; }
+.schedule-card .sc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.schedule-card .sc-teacher { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.schedule-card .sc-time { font-size: 13px; color: var(--pink-600); font-weight: 500; }
+.schedule-card .sc-store { font-size: 13px; color: var(--text-secondary); }
+.schedule-card .sc-meta {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   Page-specific Styles
+   ============================================ */
+
+/* Home — Hero Banner */
+.hero-banner {
+  background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+  padding: var(--space-3xl) var(--space-xl);
+  color: #fff;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero-banner::after {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120%;
+  height: 40px;
+  background: var(--bg-page);
+  border-radius: 50%;
+}
+.hero-title { font-size: 22px; font-weight: 700; position: relative; z-index: 1; }
+.hero-desc { font-size: 13px; opacity: 0.9; margin-top: var(--space-sm); position: relative; z-index: 1; }
+
+/* Feature cards row */
+.feature-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+.feature-item {
+  text-align: center;
+  padding: var(--space-lg) var(--space-sm);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.feature-icon {
+  width: 44px; height: 44px;
+  margin: 0 auto var(--space-sm);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.feature-icon.pink { background: var(--pink-50); color: var(--pink-500); }
+.feature-icon.purple { background: #F3E5F5; color: #AB47BC; }
+.feature-icon.teal { background: #E0F2F1; color: #26A69A; }
+.feature-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.feature-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* Apply CTA */
+.apply-cta {
+  margin: var(--space-lg);
+  background: linear-gradient(135deg, var(--pink-50), var(--pink-100));
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  text-align: center;
+  border: 2px dashed var(--pink-200);
+}
+.apply-cta h3 { font-size: 16px; color: var(--pink-700); margin-bottom: var(--space-sm); }
+.apply-cta p { font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-lg); }
+
+/* Profile */
+.profile-header {
+  background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+  padding: var(--space-3xl) var(--space-xl) var(--space-2xl);
+  text-align: center;
+  color: #fff;
+}
+.profile-avatar {
+  width: 64px; height: 64px;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.3);
+  margin: 0 auto var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border: 3px solid rgba(255,255,255,0.4);
+}
+.profile-name { font-size: 18px; font-weight: 600; }
+.profile-role { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+.profile-menu { padding: var(--space-md) 0; }
+.profile-menu .list-item { border-bottom: 1px solid var(--border-light); }
+
+/* Role Switcher */
+.role-switcher {
+  background: var(--bg-card);
+  margin: var(--space-lg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.role-switcher-header {
+  padding: var(--space-md) var(--space-lg);
+  font-size: 13px;
+  color: var(--text-tertiary);
+  background: var(--bg-group);
+}
+.role-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+  transition: background var(--duration-fast);
+}
+.role-option:last-child { border-bottom: none; }
+.role-option:active { background: var(--bg-group); }
+.role-option.active { background: var(--pink-50); }
+.role-option .role-name { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+.role-option .role-desc { font-size: 12px; color: var(--text-tertiary); }
+.role-option .role-check { color: var(--pink-500); font-weight: 600; font-size: 14px; }
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+}
+.stat-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-sm);
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.stat-value { font-size: 24px; font-weight: 700; color: var(--pink-500); }
+.stat-label { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* Tab pills inside pages */
+.tab-pills {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-pills::-webkit-scrollbar { display: none; }
+
+/* Approval action buttons */
+.approval-actions {
+  display: flex;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+.approval-actions .btn { flex: 1; }
+
+/* User Management - role tags */
+.role-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.role-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.role-tag.admin { background: var(--pink-50); color: var(--pink-600); }
+.role-tag.teacher { background: #F3E5F5; color: #7B1FA2; }
+.role-tag.customer { background: var(--info-bg); color: var(--info); }
+
+/* Step indicator */
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  gap: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.step-dot {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  font-weight: 600;
+}
+.step-dot.active { background: var(--pink-500); }
+.step-dot.done { background: var(--success); }
+.step-line {
+  width: 40px; height: 2px;
+  background: var(--border);
+  margin: 0 var(--space-sm);
+}
+.step-line.done { background: var(--success); }
+
+/* Quick actions */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-lg);
+}
+.quick-action {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast);
+  border: 1px solid var(--border-light);
+}
+.quick-action:active { background: var(--bg-group); transform: scale(0.98); }
+.quick-action-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: var(--space-sm);
+}
+.quick-action-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.quick-action-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* Today's overview on admin dashboard */
+.today-overview { padding: 0 var(--space-lg); }
+.today-overview .card { margin: 0 0 var(--space-md); }
+
+/* Search bar */
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-group);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-md) var(--space-lg);
+  gap: var(--space-sm);
+}
+.search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  outline: none;
+}
+.search-bar input::placeholder { color: var(--text-disabled); }
+.search-bar .search-icon { color: var(--text-tertiary); font-size: 14px; }
+
+/* Notification dot */
+.notif-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--error);
+  position: absolute;
+  top: -2px;
+  right: -2px;
+}
+</style>
+</head>
+<body>
+
+<div class="phone-frame" id="app">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="time">9:41</span>
+    <span class="icons">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C17.93 4.18 6.07 4.18 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-6-6l2 2c2.76-2.76 7.24-2.76 10 0l2-2C13.14 7.32 5.86 7.32 3 11z"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="1" y="6" width="18" height="12" rx="2"/><rect x="21" y="9" width="2" height="6" rx="1"/><rect x="4" y="11" width="12" height="2" rx="1" fill="#1a1a1a"/></svg>
+    </span>
+  </div>
+
+  <!-- Nav Header -->
+  <div class="nav-header" id="navHeader">
+    <button class="btn-back" id="btnBack" onclick="goBack()">← 返回</button>
+    <span class="title" id="navTitle">美约日程</span>
+    <button class="btn-action" id="btnAction" style="display:none"></button>
+  </div>
+
+  <!-- Page Container -->
+  <div class="page-container" id="pageContainer">
+
+    <!-- ============ LOGIN PAGE ============ -->
+    <div class="page active" id="page-login">
+      <div class="login-page">
+        <div class="login-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <div class="login-title">美约日程</div>
+        <div class="login-subtitle">护肤品区域服务管理平台</div>
+        <div class="login-tagline">· 让每一次到店服务 都精准到分 ·</div>
+
+        <button class="login-btn-wechat" onclick="handleLogin('admin')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 11a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+          微信授权登录
+        </button>
+        <button class="login-btn-guest" onclick="handleLogin('guest')">
+          游客模式浏览 →
+        </button>
+        <div class="login-footer">授权登录即同意《用户协议》和《隐私政策》</div>
+      </div>
+    </div>
+
+    <!-- ============ GUEST: HOME ============ -->
+    <div class="page" id="page-guest-home">
+      <div class="hero-banner">
+        <div class="hero-title">专业护肤 · 品质服务</div>
+        <div class="hero-desc">为美容院提供一站式驻场服务解决方案</div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-item">
+          <div class="feature-icon pink">💆</div>
+          <div class="feature-title">专业团队</div>
+          <div class="feature-desc">资深美容导师驻场</div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon purple">📅</div>
+          <div class="feature-title">精准排程</div>
+          <div class="feature-desc">日历管理一目了然</div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon teal">⭐</div>
+          <div class="feature-title">品质保障</div>
+          <div class="feature-desc">全程服务可追溯</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:8px;">关于我们</h3>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.7;">
+          XX品牌创立于2018年，专注于为中高端美容院提供专业的护肤产品和驻场服务。我们拥有30+资深美容导师团队，覆盖全国50+合作门店，致力于让每一次到店服务都精准高效。
+        </p>
+      </div>
+
+      <div class="apply-cta">
+        <h3>成为我们的合作伙伴</h3>
+        <p>申请入驻，享受专业老师驻场服务</p>
+        <button class="btn btn-primary btn-block btn-round" onclick="navigateTo('guest-apply')">
+          📝 申请成为合作客户
+        </button>
+      </div>
+
+      <div class="section-header">合作门店</div>
+      <div class="card" style="margin-top:0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:14px;">已覆盖 <strong style="color:var(--pink-500);">50+</strong> 美容院</span>
+          <span class="badge badge-success">持续增长中</span>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:11px;background:var(--bg-group);padding:4px 8px;border-radius:4px;color:var(--text-secondary);">朝阳区</span>
+          <span style="font-size:11px;background:var(--bg-group);padding:4px 8px;border-radius:4px;color:var(--text-secondary);">海淀区</span>
+          <span style="font-size:11px;background:var(--bg-group);padding:4px 8px;border-radius:4px;color:var(--text-secondary);">丰台区</span>
+          <span style="font-size:11px;background:var(--bg-group);padding:4px 8px;border-radius:4px;color:var(--text-secondary);">通州区</span>
+          <span style="font-size:11px;background:var(--bg-group);padding:4px 8px;border-radius:4px;color:var(--text-secondary);">大兴区</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GUEST: APPLY ============ -->
+    <div class="page" id="page-guest-apply">
+      <div style="padding:var(--space-xl) var(--space-lg);">
+        <div class="steps">
+          <div class="step"><div class="step-dot active">1</div><span style="font-size:12px;color:var(--text-tertiary);">填写信息</span></div>
+          <div class="step-line"></div>
+          <div class="step"><div class="step-dot">2</div><span style="font-size:12px;color:var(--text-tertiary);">提交审核</span></div>
+          <div class="step-line"></div>
+          <div class="step"><div class="step-dot">3</div><span style="font-size:12px;color:var(--text-tertiary);">等待通过</span></div>
+        </div>
+
+        <div class="card" style="margin:0;">
+          <div class="form-group">
+            <label class="form-label">门店名称 *</label>
+            <input class="form-input" placeholder="请输入美容院名称">
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系人 *</label>
+            <input class="form-input" placeholder="请输入联系人姓名">
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系电话 *</label>
+            <input class="form-input" placeholder="请输入手机号码" type="tel">
+          </div>
+          <div class="form-group">
+            <label class="form-label">门店地址 *</label>
+            <input class="form-input" placeholder="请选择省市区">
+          </div>
+          <div class="form-group">
+            <label class="form-label">详细地址</label>
+            <input class="form-input" placeholder="街道/门牌号">
+          </div>
+          <div class="form-group">
+            <label class="form-label">门店规模</label>
+            <select class="form-select">
+              <option>小型 (3人以下)</option>
+              <option>中型 (3-10人)</option>
+              <option>大型 (10人以上)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="showToast('申请已提交，请等待审核')" style="margin-top:var(--space-md);">
+            提交申请
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GUEST: PROFILE ============ -->
+    <div class="page" id="page-guest-profile">
+      <div class="profile-header">
+        <div class="profile-avatar">👤</div>
+        <div class="profile-name">游客用户</div>
+        <div class="profile-role">浏览模式</div>
+      </div>
+      <div class="profile-menu" style="margin-top:var(--space-md);">
+        <div class="list-item" onclick="showToast('请先登录')">
+          <span>📋</span>
+          <div class="list-item-body"><div class="list-item-title">我的申请</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('请先登录')">
+          <span>⚙️</span>
+          <div class="list-item-body"><div class="list-item-title">设置</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('请先登录')">
+          <span>📞</span>
+          <div class="list-item-body"><div class="list-item-title">联系客服</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+      </div>
+      <div style="padding:var(--space-xl);text-align:center;">
+        <button class="btn btn-primary btn-block btn-round" onclick="navigateTo('login')">立即登录</button>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: DASHBOARD ============ -->
+    <div class="page" id="page-admin-home">
+      <div style="background:linear-gradient(135deg,var(--pink-400),var(--pink-600));padding:var(--space-xl) var(--space-lg);color:#fff;">
+        <div style="font-size:13px;opacity:0.85;">今日概览 · 6月8日 周一</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px;">3 位老师出勤</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value">12</div>
+          <div class="stat-label">今日日程</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">3</div>
+          <div class="stat-label">请假待审批</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">5</div>
+          <div class="stat-label">客户待审核</div>
+        </div>
+      </div>
+
+      <div class="section-header">快捷操作</div>
+      <div class="quick-actions">
+        <div class="quick-action" onclick="navigateTo('admin-schedule')">
+          <div class="quick-action-icon" style="background:var(--pink-50);color:var(--pink-500);">📅</div>
+          <div class="quick-action-title">日程管理</div>
+          <div class="quick-action-desc">查看和安排老师日程</div>
+        </div>
+        <div class="quick-action" onclick="navigateTo('admin-leaves')">
+          <div class="quick-action-icon" style="background:var(--warning-bg);color:var(--warning);">📝</div>
+          <div class="quick-action-title">请假审批</div>
+          <div class="quick-action-desc">3条待审批</div>
+        </div>
+        <div class="quick-action" onclick="navigateTo('admin-teachers')">
+          <div class="quick-action-icon" style="background:#F3E5F5;color:#AB47BC;">👩‍🏫</div>
+          <div class="quick-action-title">老师管理</div>
+          <div class="quick-action-desc">管理老师信息</div>
+        </div>
+        <div class="quick-action" onclick="navigateTo('admin-customers')">
+          <div class="quick-action-icon" style="background:var(--info-bg);color:var(--info);">🏪</div>
+          <div class="quick-action-title">客户管理</div>
+          <div class="quick-action-desc">5条待审核</div>
+        </div>
+      </div>
+
+      <div class="section-header">今日日程</div>
+      <div class="today-overview">
+        <div class="card schedule-card">
+          <div class="sc-header">
+            <span class="sc-teacher">张美丽</span>
+            <span class="sc-time">09:00-12:00</span>
+          </div>
+          <div class="sc-store">美丽坊美容院</div>
+          <div class="sc-meta">📍 朝阳区 · <span class="badge badge-success">进行中</span></div>
+        </div>
+        <div class="card schedule-card">
+          <div class="sc-header">
+            <span class="sc-teacher">李芳华</span>
+            <span class="sc-time">10:00-16:00</span>
+          </div>
+          <div class="sc-store">丽颜阁</div>
+          <div class="sc-meta">📍 海淀区 · <span class="badge badge-success">已确认</span></div>
+        </div>
+        <div class="card schedule-card" style="border-left-color:var(--teacher-b);">
+          <div class="sc-header">
+            <span class="sc-teacher">王小雅</span>
+            <span class="sc-time">14:00-17:00</span>
+          </div>
+          <div class="sc-store">花漾SPA</div>
+          <div class="sc-meta">📍 丰台区 · <span class="badge badge-success">已确认</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: USER MANAGEMENT ============ -->
+    <div class="page" id="page-admin-users">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="搜索用户姓名或手机号">
+      </div>
+      <div class="tab-pills">
+        <span class="pill active">全部用户</span>
+        <span class="pill">管理员</span>
+        <span class="pill">老师</span>
+        <span class="pill">客户</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--pink-500);">管</div>
+        <div class="list-item-body">
+          <div class="list-item-title">周明辉</div>
+          <div class="list-item-subtitle">138****8888</div>
+          <div class="role-tags" style="margin-top:4px;">
+            <span class="role-tag admin">管理员</span>
+          </div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="showToast('编辑用户')">编辑</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-b);">张</div>
+        <div class="list-item-body">
+          <div class="list-item-title">张美丽</div>
+          <div class="list-item-subtitle">139****9999</div>
+          <div class="role-tags" style="margin-top:4px;">
+            <span class="role-tag teacher">老师</span>
+          </div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="showToast('编辑用户')">编辑</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-c);">李</div>
+        <div class="list-item-body">
+          <div class="list-item-title">李芳华</div>
+          <div class="list-item-subtitle">137****7777</div>
+          <div class="role-tags" style="margin-top:4px;">
+            <span class="role-tag teacher">老师</span>
+            <span class="role-tag admin">管理员</span>
+          </div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="showToast('编辑用户')">编辑</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-d);">王</div>
+        <div class="list-item-body">
+          <div class="list-item-title">王小雅</div>
+          <div class="list-item-subtitle">136****6666</div>
+          <div class="role-tags" style="margin-top:4px;">
+            <span class="role-tag teacher">老师</span>
+          </div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="showToast('编辑用户')">编辑</span>
+      </div>
+
+      <div class="card-flush list-item">
+        <div class="list-item-avatar" style="background:var(--info);">美</div>
+        <div class="list-item-body">
+          <div class="list-item-title">美丽坊美容院</div>
+          <div class="list-item-subtitle">王芳 · 138****8888</div>
+          <div class="role-tags" style="margin-top:4px;">
+            <span class="role-tag customer">客户</span>
+          </div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="showToast('编辑用户')">编辑</span>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: TEACHER MANAGEMENT ============ -->
+    <div class="page" id="page-admin-teachers">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="搜索老师姓名">
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-b);">张</div>
+        <div class="list-item-body">
+          <div class="list-item-title">张美丽 <span class="badge badge-success" style="margin-left:4px;">出勤中</span></div>
+          <div class="list-item-subtitle">资深美容导师 · 今日已排 4 场</div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="navigateTo('admin-schedule')">查看日程 ›</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-c);">李</div>
+        <div class="list-item-body">
+          <div class="list-item-title">李芳华</div>
+          <div class="list-item-subtitle">高级护肤讲师 · 今日已排 3 场</div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="navigateTo('admin-schedule')">查看日程 ›</span>
+      </div>
+
+      <div class="card-flush list-item" style="border-bottom:1px solid var(--border-light);">
+        <div class="list-item-avatar" style="background:var(--teacher-d);">王</div>
+        <div class="list-item-body">
+          <div class="list-item-title">王小雅 <span class="badge badge-neutral" style="margin-left:4px;">请假中</span></div>
+          <div class="list-item-subtitle">美容培训师 · 6/10-6/12 请假</div>
+        </div>
+        <span style="font-size:13px;color:var(--pink-500);cursor:pointer;" onclick="navigateTo('admin-schedule')">查看日程 ›</span>
+      </div>
+
+      <div style="padding:var(--space-xl);text-align:center;">
+        <button class="btn btn-secondary" onclick="showToast('添加老师功能')">+ 添加老师</button>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: CUSTOMER MANAGEMENT ============ -->
+    <div class="page" id="page-admin-customers">
+      <div class="tab-pills">
+        <span class="pill active" onclick="switchCustomerTab('pending')">待审核 5</span>
+        <span class="pill" onclick="switchCustomerTab('approved')">已通过 48</span>
+        <span class="pill" onclick="switchCustomerTab('rejected')">已拒绝</span>
+      </div>
+
+      <!-- Pending -->
+      <div id="customer-pending">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:15px;font-weight:600;">花漾SPA</span>
+            <span class="badge badge-warning">待审核</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);">联系人：陈丽 · 135****5555</div>
+          <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">📍 丰台区方庄路 · 中型门店 · 6月7日申请</div>
+          <div class="approval-actions">
+            <button class="btn btn-primary btn-sm" onclick="showToast('已通过花漾SPA的申请')">✓ 通过</button>
+            <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:15px;font-weight:600;">星月美容</span>
+            <span class="badge badge-warning">待审核</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);">联系人：赵强 · 133****3333</div>
+          <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">📍 东城区王府井 · 小型门店 · 6月6日申请</div>
+          <div class="approval-actions">
+            <button class="btn btn-primary btn-sm" onclick="showToast('已通过星月美容的申请')">✓ 通过</button>
+            <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:15px;font-weight:600;">臻颜护肤中心</span>
+            <span class="badge badge-warning">待审核</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-secondary);">联系人：孙悦 · 131****2222</div>
+          <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">📍 西城区金融街 · 大型门店 · 6月5日申请</div>
+          <div class="approval-actions">
+            <button class="btn btn-primary btn-sm" onclick="showToast('已通过臻颜护肤中心的申请')">✓ 通过</button>
+            <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: SCHEDULE CALENDAR ============ -->
+    <div class="page" id="page-admin-schedule">
+      <div class="calendar" id="calendar-admin"></div>
+      <div class="schedule-list" id="schedule-list-admin"></div>
+    </div>
+
+    <!-- ============ ADMIN: LEAVE APPROVAL ============ -->
+    <div class="page" id="page-admin-leaves">
+      <div class="tab-pills">
+        <span class="pill active">待审批 3</span>
+        <span class="pill">已处理 12</span>
+        <span class="pill">全部</span>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div class="list-item-avatar" style="background:var(--teacher-b);">张</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:600;">张美丽 · 病假</div>
+            <div style="font-size:13px;color:var(--text-secondary);">6月10日 — 6月12日 (3天)</div>
+          </div>
+          <span class="badge badge-warning">待审批</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">原因：身体不适，需要休养调整</div>
+        <div style="font-size:12px;color:var(--pink-500);margin-bottom:12px;">📎 诊断证明.jpg</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px;">申请时间：6月9日 20:30</div>
+        <div class="approval-actions">
+          <button class="btn btn-primary btn-sm" onclick="showToast('已通过张美丽的请假申请')">✓ 通过</button>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div class="list-item-avatar" style="background:var(--teacher-c);">李</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:600;">李芳华 · 事假</div>
+            <div style="font-size:13px;color:var(--text-secondary);">6月15日 (1天)</div>
+          </div>
+          <span class="badge badge-warning">待审批</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">原因：家中有急事需要处理</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px;">申请时间：6月8日 14:15</div>
+        <div class="approval-actions">
+          <button class="btn btn-primary btn-sm" onclick="showToast('已通过李芳华的请假申请')">✓ 通过</button>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div class="list-item-avatar" style="background:var(--teacher-d);">王</div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:600;">王小雅 · 病假</div>
+            <div style="font-size:13px;color:var(--text-secondary);">6月8日 (半天)</div>
+          </div>
+          <span class="badge badge-warning">待审批</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">原因：上午去医院复查</div>
+        <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:12px;">申请时间：6月7日 22:00</div>
+        <div class="approval-actions">
+          <button class="btn btn-primary btn-sm" onclick="showToast('已通过王小雅的请假申请')">✓ 通过</button>
+          <button class="btn btn-secondary btn-sm" onclick="showToast('已拒绝')">✗ 拒绝</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TEACHER: SCHEDULE ============ -->
+    <div class="page" id="page-teacher-schedule">
+      <div style="display:flex;justify-content:flex-end;padding:var(--space-md) var(--space-lg) 0;">
+        <button class="btn btn-secondary btn-sm" onclick="navigateTo('teacher-leave')">📝 请假申请</button>
+      </div>
+      <div class="calendar" id="calendar-teacher"></div>
+      <div class="schedule-list" id="schedule-list-teacher"></div>
+    </div>
+
+    <!-- ============ TEACHER: LEAVE APPLICATION ============ -->
+    <div class="page" id="page-teacher-leave">
+      <div style="padding:var(--space-xl) var(--space-lg);">
+        <div class="card" style="margin:0;">
+          <div class="form-group">
+            <label class="form-label">请假类型 *</label>
+            <select class="form-select">
+              <option>病假</option>
+              <option>事假</option>
+              <option>年假</option>
+              <option>调休</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">开始日期 *</label>
+            <input class="form-input" type="date" value="2026-06-10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">结束日期 *</label>
+            <input class="form-input" type="date" value="2026-06-12">
+          </div>
+          <div class="form-group">
+            <label class="form-label">请假原因 *</label>
+            <textarea class="form-textarea" placeholder="请详细说明请假原因..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">上传证明</label>
+            <div style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:var(--space-xl);text-align:center;color:var(--text-tertiary);font-size:13px;cursor:pointer;" onclick="showToast('选择文件')">
+              📎 点击上传图片或文件
+            </div>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="showToast('请假申请已提交，等待审批')" style="margin-top:var(--space-lg);">
+            提交申请
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TEACHER: PROFILE ============ -->
+    <div class="page" id="page-teacher-profile">
+      <div class="profile-header">
+        <div class="profile-avatar">张</div>
+        <div class="profile-name">张美丽</div>
+        <div class="profile-role">资深美容导师 · 老师</div>
+      </div>
+
+      <!-- Role Switcher -->
+      <div class="role-switcher" id="roleSwitcher-teacher">
+        <div class="role-switcher-header">切换角色</div>
+        <div class="role-option active" onclick="switchRole('teacher')">
+          <div>
+            <div class="role-name">👩‍🏫 老师</div>
+            <div class="role-desc">查看日程、请假申请</div>
+          </div>
+          <span class="role-check">✓ 当前</span>
+        </div>
+        <div class="role-option" onclick="switchRole('admin')">
+          <div>
+            <div class="role-name">⚙️ 管理员</div>
+            <div class="role-desc">全部管理功能</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-menu" style="margin-top:var(--space-md);">
+        <div class="list-item" onclick="navigateTo('teacher-schedule')">
+          <span>📅</span>
+          <div class="list-item-body"><div class="list-item-title">我的日程</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="navigateTo('teacher-leave')">
+          <span>📝</span>
+          <div class="list-item-body"><div class="list-item-title">请假记录</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('个人信息设置')">
+          <span>👤</span>
+          <div class="list-item-body"><div class="list-item-title">个人信息</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('设置页面')">
+          <span>⚙️</span>
+          <div class="list-item-body"><div class="list-item-title">设置</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+      </div>
+      <div style="padding:var(--space-xl);text-align:center;">
+        <button class="btn btn-ghost" onclick="navigateTo('login')">退出登录</button>
+      </div>
+    </div>
+
+    <!-- ============ CUSTOMER: SCHEDULE ============ -->
+    <div class="page" id="page-customer-schedule">
+      <div class="calendar" id="calendar-customer"></div>
+      <div class="schedule-list" id="schedule-list-customer"></div>
+    </div>
+
+    <!-- ============ CUSTOMER: PROFILE ============ -->
+    <div class="page" id="page-customer-profile">
+      <div class="profile-header">
+        <div class="profile-avatar">美</div>
+        <div class="profile-name">美丽坊美容院</div>
+        <div class="profile-role">合作客户 · 王芳</div>
+      </div>
+
+      <!-- Role Switcher -->
+      <div class="role-switcher" id="roleSwitcher-customer">
+        <div class="role-switcher-header">切换角色</div>
+        <div class="role-option active" onclick="switchRole('customer')">
+          <div>
+            <div class="role-name">🏪 客户</div>
+            <div class="role-desc">查看门店老师日程</div>
+          </div>
+          <span class="role-check">✓ 当前</span>
+        </div>
+      </div>
+
+      <div class="profile-menu" style="margin-top:var(--space-md);">
+        <div class="list-item" onclick="navigateTo('customer-schedule')">
+          <span>📅</span>
+          <div class="list-item-body"><div class="list-item-title">门店日程</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('门店信息')">
+          <span>🏪</span>
+          <div class="list-item-body"><div class="list-item-title">门店信息</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('联系客服')">
+          <span>📞</span>
+          <div class="list-item-body"><div class="list-item-title">联系客服</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+      </div>
+      <div style="padding:var(--space-xl);text-align:center;">
+        <button class="btn btn-ghost" onclick="navigateTo('login')">退出登录</button>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: PROFILE ============ -->
+    <div class="page" id="page-admin-profile">
+      <div class="profile-header">
+        <div class="profile-avatar">管</div>
+        <div class="profile-name">周明辉</div>
+        <div class="profile-role">区域代理商 · 管理员</div>
+      </div>
+
+      <!-- Role Switcher for admin who also has teacher role -->
+      <div class="role-switcher" id="roleSwitcher-admin">
+        <div class="role-switcher-header">切换角色</div>
+        <div class="role-option active" onclick="switchRole('admin')">
+          <div>
+            <div class="role-name">⚙️ 管理员</div>
+            <div class="role-desc">全部管理功能</div>
+          </div>
+          <span class="role-check">✓ 当前</span>
+        </div>
+        <div class="role-option" onclick="switchRole('teacher')">
+          <div>
+            <div class="role-name">👩‍🏫 老师</div>
+            <div class="role-desc">查看日程、请假申请</div>
+          </div>
+        </div>
+        <div class="role-option" onclick="switchRole('customer')">
+          <div>
+            <div class="role-name">🏪 客户</div>
+            <div class="role-desc">查看门店老师日程</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-menu" style="margin-top:var(--space-md);">
+        <div class="list-item" onclick="showToast('个人信息设置')">
+          <span>👤</span>
+          <div class="list-item-body"><div class="list-item-title">个人信息</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('系统设置')">
+          <span>⚙️</span>
+          <div class="list-item-body"><div class="list-item-title">系统设置</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('消息通知')">
+          <span>🔔</span>
+          <div class="list-item-body"><div class="list-item-title">消息通知</div></div>
+          <span class="badge badge-error" style="margin-left:8px;">3</span>
+          <span class="list-item-arrow">›</span>
+        </div>
+        <div class="list-item" onclick="showToast('关于我们')">
+          <span>ℹ️</span>
+          <div class="list-item-body"><div class="list-item-title">关于美约日程</div></div>
+          <span class="list-item-arrow">›</span>
+        </div>
+      </div>
+      <div style="padding:var(--space-xl);text-align:center;">
+        <button class="btn btn-ghost" onclick="navigateTo('login')">退出登录</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Tab Bar -->
+  <div class="tab-bar" id="tabBar"></div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Modal overlay for Role Switcher / New Schedule etc -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================
+// App State & Navigation
+// ============================================
+const APP = {
+  currentRole: 'guest',
+  currentPage: 'login',
+  pageHistory: [],
+  calendarYear: 2026,
+  calendarMonth: 6,
+  calendarSelectedDate: null,
+};
+
+// Demo schedule data
+const SCHEDULES = {
+  '2026-06-08': [
+    { teacher: '张美丽', store: '美丽坊美容院', time: '09:00-12:00', status: 'confirmed', color: 'pink' },
+    { teacher: '李芳华', store: '丽颜阁', time: '10:00-16:00', status: 'confirmed', color: 'purple' },
+    { teacher: '王小雅', store: '花漾SPA', time: '14:00-17:00', status: 'confirmed', color: 'teal' },
+  ],
+  '2026-06-09': [
+    { teacher: '张美丽', store: '星月美容', time: '09:00-12:00', status: 'confirmed', color: 'pink' },
+    { teacher: '李芳华', store: '臻颜护肤中心', time: '13:00-18:00', status: 'confirmed', color: 'purple' },
+  ],
+  '2026-06-10': [
+    { teacher: '张美丽', store: '请假中', time: '全天', status: 'leave', color: 'leave' },
+  ],
+  '2026-06-11': [
+    { teacher: '张美丽', store: '请假中', time: '全天', status: 'leave', color: 'leave' },
+  ],
+  '2026-06-12': [
+    { teacher: '张美丽', store: '请假中', time: '全天', status: 'leave', color: 'leave' },
+    { teacher: '李芳华', store: '花漾SPA', time: '10:00-14:00', status: 'confirmed', color: 'purple' },
+  ],
+  '2026-06-15': [
+    { teacher: '李芳华', store: '请假中', time: '全天', status: 'leave', color: 'leave' },
+  ],
+  '2026-06-16': [
+    { teacher: '张美丽', store: '美丽坊美容院', time: '09:00-12:00', status: 'confirmed', color: 'pink' },
+    { teacher: '张美丽', store: '丽颜阁', time: '14:00-17:00', status: 'confirmed', color: 'pink' },
+    { teacher: '王小雅', store: '星月美容', time: '10:00-16:00', status: 'confirmed', color: 'teal' },
+  ],
+};
+
+// Teacher schedule (filtered)
+const TEACHER_SCHEDULES = {};
+Object.keys(SCHEDULES).forEach(date => {
+  TEACHER_SCHEDULES[date] = SCHEDULES[date].filter(s => s.color === 'pink' || s.teacher === '张美丽');
+});
+
+// Customer schedule (美丽坊美容院)
+const CUSTOMER_SCHEDULES = {};
+Object.keys(SCHEDULES).forEach(date => {
+  CUSTOMER_SCHEDULES[date] = SCHEDULES[date].filter(s => s.store === '美丽坊美容院' || s.store === '花漾SPA');
+});
+
+// Tab bar config per role
+const TAB_CONFIG = {
+  guest: [
+    { id: 'guest-home', label: '首页', icon: '🏠', page: 'guest-home' },
+    { id: 'guest-profile', label: '我的', icon: '👤', page: 'guest-profile' },
+  ],
+  admin: [
+    { id: 'admin-home', label: '工作台', icon: '📊', page: 'admin-home' },
+    { id: 'admin-users', label: '用户', icon: '👥', page: 'admin-users' },
+    { id: 'admin-teachers', label: '老师', icon: '👩‍🏫', page: 'admin-teachers' },
+    { id: 'admin-customers', label: '客户', icon: '🏪', page: 'admin-customers' },
+    { id: 'admin-profile', label: '我的', icon: '👤', page: 'admin-profile' },
+  ],
+  teacher: [
+    { id: 'teacher-schedule', label: '日程', icon: '📅', page: 'teacher-schedule' },
+    { id: 'teacher-leave', label: '请假', icon: '📝', page: 'teacher-leave' },
+    { id: 'teacher-profile', label: '我的', icon: '👤', page: 'teacher-profile' },
+  ],
+  customer: [
+    { id: 'customer-schedule', label: '日程', icon: '📅', page: 'customer-schedule' },
+    { id: 'customer-profile', label: '我的', icon: '👤', page: 'customer-profile' },
+  ],
+};
+
+const NAV_TITLES = {
+  'login': '美约日程',
+  'guest-home': '首页',
+  'guest-apply': '申请成为客户',
+  'guest-profile': '个人中心',
+  'admin-home': '工作台',
+  'admin-users': '用户管理',
+  'admin-teachers': '老师管理',
+  'admin-customers': '客户管理',
+  'admin-schedule': '日程管理',
+  'admin-leaves': '请假审批',
+  'admin-profile': '个人中心',
+  'teacher-schedule': '我的日程',
+  'teacher-leave': '请假申请',
+  'teacher-profile': '个人中心',
+  'customer-schedule': '门店日程',
+  'customer-profile': '个人中心',
+};
+
+const ROLE_LANDING = {
+  guest: 'guest-home',
+  admin: 'admin-home',
+  teacher: 'teacher-schedule',
+  customer: 'customer-schedule',
+};
+
+// ============================================
+// Navigation
+// ============================================
+function navigateTo(pageId, addToHistory = true) {
+  const container = document.getElementById('pageContainer');
+  const allPages = container.querySelectorAll('.page');
+  allPages.forEach(p => p.classList.remove('active'));
+
+  const targetPage = document.getElementById('page-' + pageId);
+  if (targetPage) {
+    targetPage.classList.add('active');
+    if (addToHistory && APP.currentPage !== pageId) {
+      APP.pageHistory.push(APP.currentPage);
+    }
+    APP.currentPage = pageId;
+    container.scrollTop = 0;
+  }
+
+  updateNavHeader(pageId);
+  updateTabBar(pageId);
+  renderCalendarsIfNeeded(pageId);
+}
+
+function goBack() {
+  if (APP.pageHistory.length > 0) {
+    const prevPage = APP.pageHistory.pop();
+    navigateTo(prevPage, false);
+  }
+}
+
+function updateNavHeader(pageId) {
+  const title = NAV_TITLES[pageId] || '美约日程';
+  document.getElementById('navTitle').textContent = title;
+  const btnBack = document.getElementById('btnBack');
+  const btnAction = document.getElementById('btnAction');
+
+  // Show back button unless on main tab pages
+  const isMainTab = Object.values(TAB_CONFIG).flat().some(t => t.page === pageId);
+  btnBack.style.display = (pageId === 'login' || isMainTab) ? 'none' : 'inline-block';
+
+  // Action button
+  btnAction.style.display = 'none';
+  if (pageId === 'admin-schedule') {
+    btnAction.style.display = 'inline-block';
+    btnAction.textContent = '+ 新建';
+    btnAction.onclick = () => showScheduleModal();
+  }
+}
+
+function updateTabBar(pageId) {
+  const tabs = TAB_CONFIG[APP.currentRole] || [];
+  const tabBar = document.getElementById('tabBar');
+  tabBar.innerHTML = tabs.map(t => `
+    <div class="tab-item${t.page === pageId ? ' active' : ''}" onclick="navigateTo('${t.page}')">
+      <span style="font-size:20px;">${t.icon}</span>
+      <span>${t.label}</span>
+      <div class="tab-dot"></div>
+    </div>
+  `).join('');
+}
+
+// ============================================
+// Login
+// ============================================
+function handleLogin(role) {
+  APP.currentRole = role;
+  APP.pageHistory = [];
+  const landingPage = ROLE_LANDING[role];
+
+  // Hide login page
+  document.getElementById('page-login').classList.remove('active');
+
+  navigateTo(landingPage, false);
+}
+
+// ============================================
+// Role Switching
+// ============================================
+function switchRole(role) {
+  APP.currentRole = role;
+  APP.pageHistory = [];
+  const landingPage = ROLE_LANDING[role];
+  showToast('已切换到：' + (role === 'admin' ? '管理员' : role === 'teacher' ? '老师' : role === 'customer' ? '客户' : '游客'));
+  navigateTo(landingPage, false);
+}
+
+// ============================================
+// Customer Tab Switch
+// ============================================
+function switchCustomerTab(tab) {
+  document.querySelectorAll('#page-admin-customers .pill').forEach((p, i) => {
+    p.classList.toggle('active', (tab === 'pending' && i === 0) || (tab === 'approved' && i === 1) || (tab === 'rejected' && i === 2));
+  });
+  showToast('切换到：' + (tab === 'pending' ? '待审核' : tab === 'approved' ? '已通过' : '已拒绝'));
+}
+
+// ============================================
+// Calendar Engine
+// ============================================
+function renderCalendar(containerId, scheduleData, role) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const year = APP.calendarYear;
+  const month = APP.calendarMonth;
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const prevMonthDays = new Date(year, month - 1, 0).getDate();
+
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  let html = `
+    <div class="calendar-header">
+      <span class="calendar-title">${year}年 ${monthNames[month-1]}</span>
+      <div class="calendar-nav">
+        <button class="calendar-nav-btn" onclick="changeMonth(-1, '${containerId}', '${role}')">‹</button>
+        <button class="calendar-nav-today" onclick="goToToday('${containerId}', '${role}')">今天</button>
+        <button class="calendar-nav-btn" onclick="changeMonth(1, '${containerId}', '${role}')">›</button>
+      </div>
+    </div>
+    <div class="calendar-weekdays">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="calendar-grid">
+  `;
+
+  // Previous month days
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const day = prevMonthDays - i;
+    html += `<div class="calendar-day other-month">${day}</div>`;
+  }
+
+  // Current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === APP.calendarSelectedDate;
+    const schedules = scheduleData[dateStr] || [];
+    const hasPink = schedules.some(s => s.color === 'pink');
+    const hasPurple = schedules.some(s => s.color === 'purple');
+    const hasLeave = schedules.some(s => s.color === 'leave');
+
+    let cls = 'calendar-day';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+
+    html += `<div class="${cls}" onclick="selectDate('${dateStr}', '${containerId}', '${role}')">${d}`;
+    if (hasPink || hasPurple || hasLeave) {
+      html += '<div class="day-dots">';
+      if (hasPink) html += '<div class="day-dot pink"></div>';
+      if (hasPurple) html += '<div class="day-dot purple"></div>';
+      if (hasLeave) html += '<div class="day-dot leave"></div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Next month fill
+  const remaining = (7 - ((firstDay + daysInMonth) % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    html += `<div class="calendar-day other-month">${d}</div>`;
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Update schedule list below
+  updateScheduleList(containerId, scheduleData, role);
+}
+
+function updateScheduleList(containerId, scheduleData, role) {
+  let listId;
+  if (containerId === 'calendar-admin') listId = 'schedule-list-admin';
+  else if (containerId === 'calendar-teacher') listId = 'schedule-list-teacher';
+  else listId = 'schedule-list-customer';
+
+  const listContainer = document.getElementById(listId);
+  if (!listContainer) return;
+
+  if (!APP.calendarSelectedDate) {
+    const today = new Date();
+    APP.calendarSelectedDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  }
+
+  const schedules = scheduleData[APP.calendarSelectedDate] || [];
+  const weekDays = ['周日','周一','周二','周三','周四','周五','周六'];
+  const [y, m, d] = APP.calendarSelectedDate.split('-');
+  const date = new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+  const dayName = weekDays[date.getDay()];
+
+  let html = `
+    <div class="schedule-date-header">
+      ${m}月${d}日 ${dayName}
+      <span class="count">共 ${schedules.length} 个日程</span>
+    </div>
+  `;
+
+  if (schedules.length === 0) {
+    html += `
+      <div class="empty-state">
+        <div class="empty-state-icon">📅</div>
+        <div class="empty-state-text">暂无日程安排</div>
+      </div>
+    `;
+  } else {
+    schedules.forEach(s => {
+      const leaveClass = s.status === 'leave' ? ' leave' : '';
+      html += `
+        <div class="schedule-card${leaveClass}">
+          <div class="sc-header">
+            <span class="sc-teacher">${s.teacher}</span>
+            <span class="sc-time">${s.time}</span>
+          </div>
+          <div class="sc-store">${s.store}</div>
+          ${s.status !== 'leave' ? `<div class="sc-meta"><span class="badge badge-success">已确认</span></div>` : `<div class="sc-meta"><span class="badge badge-neutral">请假中</span></div>`}
+        </div>
+      `;
+    });
+  }
+
+  listContainer.innerHTML = html;
+}
+
+function selectDate(dateStr, containerId, role) {
+  APP.calendarSelectedDate = dateStr;
+  const scheduleData = getScheduleData(role);
+  renderCalendar(containerId, scheduleData, role);
+}
+
+function changeMonth(delta, containerId, role) {
+  APP.calendarMonth += delta;
+  if (APP.calendarMonth > 12) { APP.calendarMonth = 1; APP.calendarYear++; }
+  if (APP.calendarMonth < 1) { APP.calendarMonth = 12; APP.calendarYear--; }
+  const scheduleData = getScheduleData(role);
+  renderCalendar(containerId, scheduleData, role);
+}
+
+function goToToday(containerId, role) {
+  const today = new Date();
+  APP.calendarYear = today.getFullYear();
+  APP.calendarMonth = today.getMonth() + 1;
+  APP.calendarSelectedDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const scheduleData = getScheduleData(role);
+  renderCalendar(containerId, scheduleData, role);
+}
+
+function getScheduleData(role) {
+  if (role === 'teacher') return TEACHER_SCHEDULES;
+  if (role === 'customer') return CUSTOMER_SCHEDULES;
+  return SCHEDULES;
+}
+
+function renderCalendarsIfNeeded(pageId) {
+  if (pageId === 'admin-schedule') {
+    renderCalendar('calendar-admin', SCHEDULES, 'admin');
+  } else if (pageId === 'teacher-schedule') {
+    renderCalendar('calendar-teacher', TEACHER_SCHEDULES, 'teacher');
+  } else if (pageId === 'customer-schedule') {
+    renderCalendar('calendar-customer', CUSTOMER_SCHEDULES, 'customer');
+  }
+}
+
+// ============================================
+// Schedule Creation Modal
+// ============================================
+function showScheduleModal() {
+  const modal = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <h3 style="font-size:17px;font-weight:600;margin-bottom:var(--space-lg);">新建日程</h3>
+    <div class="form-group">
+      <label class="form-label">选择老师</label>
+      <select class="form-select">
+        <option>张美丽</option>
+        <option>李芳华</option>
+        <option>王小雅</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">选择门店</label>
+      <select class="form-select">
+        <option>美丽坊美容院</option>
+        <option>丽颜阁</option>
+        <option>花漾SPA</option>
+        <option>星月美容</option>
+        <option>臻颜护肤中心</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">日期</label>
+      <input class="form-input" type="date" value="${APP.calendarSelectedDate || '2026-06-16'}">
+    </div>
+    <div style="display:flex;gap:var(--space-md);">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">开始时间</label>
+        <input class="form-input" type="time" value="09:00">
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">结束时间</label>
+        <input class="form-input" type="time" value="12:00">
+      </div>
+    </div>
+    <div style="display:flex;gap:var(--space-md);margin-top:var(--space-lg);">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="closeModal();showToast('日程已创建')">确认创建</button>
+    </div>
+  `;
+  modal.classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ============================================
+// Toast
+// ============================================
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+// ============================================
+// Init
+// ============================================
+function init() {
+  // Set today's date for calendar
+  const today = new Date();
+  APP.calendarYear = today.getFullYear();
+  APP.calendarMonth = today.getMonth() + 1;
+  APP.calendarSelectedDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  // Set status bar time
+  const now = new Date();
+  document.querySelector('.status-bar .time').textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  navigateTo('login', false);
+}
+
+init();
+</script>
+</body>
+</html>
