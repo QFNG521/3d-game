@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 - 页面未找到</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <button id="themeToggle" class="theme-toggle" aria-label="切换主题" title="点击循环：自动 / 亮色 / 暗色">
+    <span class="theme-icon">自动</span>
+  </button>
+  <button id="soundToggle" class="sound-toggle" aria-label="开关音效" title="开关音效">
+    <svg class="sound-icon-on" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+    </svg>
+    <svg class="sound-icon-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <line x1="22" y1="9" x2="16" y2="15"></line>
+      <line x1="16" y1="9" x2="22" y2="15"></line>
+    </svg>
+  </button>
+
+  <div class="container">
+    <header>
+      <h1>404</h1>
+      <p class="subtitle">您所访问的页面不存在或已删除</p>
+      <p class="hint">点击小圆点，围住小猫</p>
+    </header>
+
+    <div class="difficulty-picker" id="difficultyPicker" role="group" aria-label="难度选择">
+      <button class="difficulty-btn" data-difficulty="easy" type="button">简单</button>
+      <button class="difficulty-btn" data-difficulty="normal" type="button">普通</button>
+      <button class="difficulty-btn" data-difficulty="hard" type="button">困难</button>
+    </div>
+
+    <div class="hud" id="hud" aria-live="polite">
+      <span>步数 <strong id="moveCount">0</strong></span>
+      <span class="hud-sep">·</span>
+      <span>用时 <strong id="timer">0:00</strong></span>
+    </div>
+
+    <main>
+      <canvas id="gameCanvas"></canvas>
+      <div id="message" class="message"></div>
+    </main>
+
+    <footer>
+      <button id="undoBtn" class="undo-btn" disabled>撤销</button>
+      <button id="resetBtn" class="reset-btn">重新开始</button>
+    </footer>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>

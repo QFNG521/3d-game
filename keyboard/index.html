@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>指法训练营 - 键盘检测与盲打练习</title>
+    <style>
+        * {
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #1e2a3a 0%, #0f1724 100%);
+            font-family: 'Segoe UI', 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 主容器 */
+        .app-container {
+            max-width: 1300px;
+            width: 100%;
+            background: rgba(22, 34, 48, 0.65);
+            backdrop-filter: blur(2px);
+            border-radius: 3rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            padding: 1.5rem;
+            transition: all 0.2s;
+        }
+
+        /* 练习控制面板 */
+        .practice-panel {
+            background: #0f212e;
+            border-radius: 2rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 #2c4a5e;
+        }
+
+        .target-area {
+            text-align: center;
+            background: #07131c;
+            border-radius: 2rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #2d6a7c;
+        }
+
+        .target-label {
+            font-size: 1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #8db5c7;
+            font-weight: 500;
+        }
+
+        .target-char {
+            font-family: 'Fira Mono', 'Courier New', monospace;
+            font-size: 6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f0f9ff, #b9e6f0);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            margin: 0.2rem 0;
+            line-height: 1.2;
+            letter-spacing: 8px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: #071a24;
+            padding: 0.5rem 1.2rem;
+            border-radius: 2rem;
+            min-width: 110px;
+            text-align: center;
+            box-shadow: inset 0 0 5px #0b2b38, 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #facc15;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #86b3c4;
+            text-transform: uppercase;
+        }
+
+        .accuracy {
+            color: #4cd964;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #1f3e4b;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 3rem;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #ecf9ff;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 3px 0 #0a1922;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: #2b6f8f;
+            box-shadow: 0 3px 0 #134252;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3d89ad;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: #8f5e2b;
+            box-shadow: 0 3px 0 #523d1a;
+        }
+
+        .btn-warning:hover {
+            background: #b47734;
+        }
+
+        .btn-danger {
+            background: #742a2a;
+            box-shadow: 0 3px 0 #441515;
+        }
+
+        .btn-danger:hover {
+            background: #9a3a3a;
+        }
+
+        .feedback {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 500;
+            background: #071822b3;
+            border-radius: 2rem;
+            padding: 0.5rem;
+            color: #c0e0ed;
+        }
+
+        /* 虚拟键盘区域 */
+        .keyboard-wrapper {
+            background: #0b1821;
+            border-radius: 2rem;
+            padding: 1.2rem;
+            box-shadow: inset 0 0 0 1px #2f5568, 0 12px 28px black;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 0.7rem;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+        }
+
+        .key {
+            background: #1e2f39;
+            border-radius: 12px;
+            padding: 0.8rem 0.2rem;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            font-family: monospace;
+            color: #e9f5ff;
+            box-shadow: 0 3px 0 #0a141c;
+            transition: all 0.05s linear;
+            cursor: default;
+            min-width: 55px;
+            flex: 1 0 auto;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #2d5a6e;
+        }
+
+        /* 特殊宽键 */
+        .key-wide {
+            flex: 1.6;
+            min-width: 80px;
+        }
+
+        .key-space {
+            flex: 5;
+            min-width: 250px;
+        }
+
+        .key-active {
+            background: #facc15;
+            color: #0f1724;
+            box-shadow: 0 0 12px #ffdd66;
+            border-bottom: 2px solid #ffbe3c;
+            transform: scale(0.97);
+        }
+
+        /* 指法提示辅助 */
+        .finger-tip {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            text-align: center;
+            background: #0b202b;
+            border-radius: 2rem;
+            padding: 0.5rem;
+            color: #9bc3d4;
+        }
+
+        .highlight-guide {
+            color: #ffd966;
+            font-weight: bold;
+        }
+
+        @media (max-width: 750px) {
+            .key {
+                font-size: 0.7rem;
+                min-width: 38px;
+                padding: 0.5rem 0.1rem;
+            }
+            .target-char {
+                font-size: 3.8rem;
+            }
+            .stat-value {
+                font-size: 1.4rem;
+            }
+            .button-group .btn {
+                padding: 0.4rem 1rem;
+                font-size: 0.8rem;
+            }
+            .keyboard-row {
+                gap: 0.3rem;
+            }
+        }
+
+        @media (max-width: 550px) {
+            .key {
+                font-size: 0.6rem;
+                min-width: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 指法练习核心区 -->
+    <div class="practice-panel">
+        <div class="target-area">
+            <div class="target-label">🎯 当前练习键位 🎯</div>
+            <div class="target-char" id="targetChar">A</div>
+            <div class="target-label">✍️ 按对应按键 (区分大小写忽略, 符号需精确)</div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="correctCount">0</div>
+                <div class="stat-label">✅ 正确</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">❌ 错误</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value accuracy" id="accuracyRate">0%</div>
+                <div class="stat-label">📊 准确率</div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" id="skipBtn">⏩ 跳过当前键</button>
+            <button class="btn btn-warning" id="resetStatsBtn">🔄 重置统计</button>
+            <button class="btn btn-danger" id="newPracticeBtn">✨ 新练习 (重置全部)</button>
+        </div>
+        <div class="feedback" id="feedbackMsg">
+            💡 按下键盘任意键会高亮对应虚拟键，正确匹配练习字符会得分并刷新目标！
+        </div>
+    </div>
+
+    <!-- 可视化键盘 (标准美式布局主要键位) -->
+    <div class="keyboard-wrapper">
+        <div class="keyboard-row" id="rowDigits"></div>
+        <div class="keyboard-row" id="rowTop"></div>
+        <div class="keyboard-row" id="rowHome"></div>
+        <div class="keyboard-row" id="rowBottom"></div>
+        <div class="keyboard-row">
+            <div class="key key-wide" data-code="ShiftLeft">Shift</div>
+            <div class="key key-wide" data-code="ControlLeft">Ctrl</div>
+            <div class="key" data-code="AltLeft">Alt</div>
+            <div class="key key-space" data-code="Space">␣</div>
+            <div class="key" data-code="AltRight">AltGr</div>
+            <div class="key key-wide" data-code="Enter">↵ Enter</div>
+            <div class="key key-wide" data-code="Backspace">⌫ Bksp</div>
+        </div>
+        <div class="finger-tip">
+            💡 <span class="highlight-guide">指法小贴士</span> · 基准行: ASDF (左手) JKL; (右手) · 拇指负责空格 · 每次按键尽量回到基准位
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 练习字符池 (基础指法: 字母 + 常用符号 不需要shift单键可打出的下档符号) ----------
+    const PRACTICE_POOL = [
+        // 字母 a-z (26个)
+        'a','b','c','d','e','f','g','h','i','j','k','l','m',
+        'n','o','p','q','r','s','t','u','v','w','x','y','z',
+        // 数字 0-9
+        '0','1','2','3','4','5','6','7','8','9',
+        // 常用符号（无需shift可直接输入）
+        ',','.','/',';','\'','[',']','\\','-','='
+    ];
+
+    // 状态变量
+    let currentTarget = 'a';          // 当前需要练习的字符 (小写字母或符号原样)
+    let correctTotal = 0;
+    let errorTotal = 0;
+    let lastFeedbackTimeout = null;
+
+    // DOM 元素
+    const targetCharEl = document.getElementById('targetChar');
+    const correctCountEl = document.getElementById('correctCount');
+    const errorCountEl = document.getElementById('errorCount');
+    const accuracyRateEl = document.getElementById('accuracyRate');
+    const feedbackMsgEl = document.getElementById('feedbackMsg');
+    const skipBtn = document.getElementById('skipBtn');
+    const resetStatsBtn = document.getElementById('resetStatsBtn');
+    const newPracticeBtn = document.getElementById('newPracticeBtn');
+
+    // ---------- 构建完整键盘映射 (通过data-code管理高亮) ----------
+    // 定义键盘行内容: [显示文本, data-code, 额外样式类?]
+    const digitKeys = [
+        ['`', 'Backquote'], ['1', 'Digit1'], ['2', 'Digit2'], ['3', 'Digit3'], ['4', 'Digit4'],
+        ['5', 'Digit5'], ['6', 'Digit6'], ['7', 'Digit7'], ['8', 'Digit8'], ['9', 'Digit9'],
+        ['0', 'Digit0'], ['-', 'Minus'], ['=', 'Equal'], ['⌫', 'Backspace']
+    ];
+    const topRowKeys = [
+        ['Tab', 'Tab'], ['Q', 'KeyQ'], ['W', 'KeyW'], ['E', 'KeyE'], ['R', 'KeyR'],
+        ['T', 'KeyT'], ['Y', 'KeyY'], ['U', 'KeyU'], ['I', 'KeyI'], ['O', 'KeyO'],
+        ['P', 'KeyP'], ['[', 'BracketLeft'], [']', 'BracketRight'], ['\\', 'Backslash']
+    ];
+    const homeRowKeys = [
+        ['Caps', 'CapsLock'], ['A', 'KeyA'], ['S', 'KeyS'], ['D', 'KeyD'], ['F', 'KeyF'],
+        ['G', 'KeyG'], ['H', 'KeyH'], ['J', 'KeyJ'], ['K', 'KeyK'], ['L', 'KeyL'],
+        [';', 'Semicolon'], ["'", 'Quote'], ['Enter', 'Enter']
+    ];
+    const bottomRowKeys = [
+        ['Shift', 'ShiftLeft'], ['Z', 'KeyZ'], ['X', 'KeyX'], ['C', 'KeyC'], ['V', 'KeyV'],
+        ['B', 'KeyB'], ['N', 'KeyN'], ['M', 'KeyM'], [',', 'Comma'], ['.', 'Period'],
+        ['/', 'Slash'], ['Shift', 'ShiftRight']
+    ];
+
+    // 辅助生成键盘
+    function createKeyElement(displayText, code, customClass = '') {
+        const keyDiv = document.createElement('div');
+        keyDiv.className = `key ${customClass}`;
+        keyDiv.textContent = displayText;
+        keyDiv.setAttribute('data-code', code);
+        return keyDiv;
+    }
+
+    function buildKeyboard() {
+        const rowDigits = document.getElementById('rowDigits');
+        const rowTop = document.getElementById('rowTop');
+        const rowHome = document.getElementById('rowHome');
+        const rowBottom = document.getElementById('rowBottom');
+        // 清空
+        rowDigits.innerHTML = '';
+        rowTop.innerHTML = '';
+        rowHome.innerHTML = '';
+        rowBottom.innerHTML = '';
+
+        // 数字行（特殊处理退格，退格已经放在最后但在这里展示会更合理, 但避免重复, 按原数组展示, 但注意退格已在最后一行单独有backspace键,为了避免冲突我们保留数字行最后Backspace再额外独立一行后退格，但根据设计最后功能行有Backspace，所以数字行这里去除Backspace避免重复，调整digitKeys去掉最后的Backspace，保持整洁。
+        // 更新digitKeys 不带backspace，因为下方已有独立Backspace键
+        const cleanDigitKeys = [
+            ['`', 'Backquote'], ['1', 'Digit1'], ['2', 'Digit2'], ['3', 'Digit3'], ['4', 'Digit4'],
+            ['5', 'Digit5'], ['6', 'Digit6'], ['7', 'Digit7'], ['8', 'Digit8'], ['9', 'Digit9'],
+            ['0', 'Digit0'], ['-', 'Minus'], ['=', 'Equal']
+        ];
+        cleanDigitKeys.forEach(([disp, code]) => {
+            rowDigits.appendChild(createKeyElement(disp, code));
+        });
+        // 单独加一个退格符号? 保持和整体风格一致，但下面功能行已有backspace，保持一致即可不重复，但为了视觉再加也没有必要，保持干净。
+        
+        topRowKeys.forEach(([disp, code]) => {
+            let cls = '';
+            if (code === 'Backspace') cls = 'key-wide';
+            rowTop.appendChild(createKeyElement(disp, code, cls));
+        });
+        homeRowKeys.forEach(([disp, code]) => {
+            let cls = (code === 'Enter') ? 'key-wide' : '';
+            rowHome.appendChild(createKeyElement(disp, code, cls));
+        });
+        bottomRowKeys.forEach(([disp, code]) => {
+            let cls = (code === 'ShiftLeft' || code === 'ShiftRight') ? 'key-wide' : '';
+            rowBottom.appendChild(createKeyElement(disp, code, cls));
+        });
+    }
+
+    // 额外手动确保功能行的键位包含在映射中(Shift/Ctrl/Alt/Space/Enter/Backspace已存在于最后一行的构建)
+    // 因为最后功能行是动态额外单独在html里写死了,但为了方便所有键高亮统一，我们也要把最后一行单独的按键赋予data-code,并且脚本中进行管理.
+    // 由于最后一行是HTML静态写的, 但我们需要在页面加载后绑定这些额外按键的 data-code 并参与高亮
+    function bindExtraFunctionalKeys() {
+        const extraRow = document.querySelectorAll('.keyboard-wrapper .keyboard-row:last-child .key');
+        // 确保每个按钮已经有 data-code 属性, 已经存在于HTML写法，检查一下：'ShiftLeft','ControlLeft','AltLeft','Space','AltRight','Enter','Backspace'
+        // 但是HTML里静态已写好data-code, 无需额外生成，但我们需要保证高亮时能获取到这些元素即可。
+    }
+
+    // 高亮移除 & 添加
+    let activeKeys = new Set();
+    function highlightKey(code) {
+        removeHighlightByCode(code); // 先清理已有的相同code旧高亮
+        const keyElement = document.querySelector(`.key[data-code="${code}"]`);
+        if (keyElement) {
+            keyElement.classList.add('key-active');
+            activeKeys.add(code);
+        }
+    }
+
+    function removeHighlightByCode(code) {
+        const keyElement = document.querySelector(`.key[data-code="${code}"]`);
+        if (keyElement && activeKeys.has(code)) {
+            keyElement.classList.remove('key-active');
+            activeKeys.delete(code);
+        }
+    }
+
+    function clearAllHighlights() {
+        activeKeys.forEach(code => {
+            const el = document.querySelector(`.key[data-code="${code}"]`);
+            if (el) el.classList.remove('key-active');
+        });
+        activeKeys.clear();
+    }
+
+    // 更新统计显示
+    function updateStatsUI() {
+        correctCountEl.innerText = correctTotal;
+        errorCountEl.innerText = errorTotal;
+        let total = correctTotal + errorTotal;
+        let accuracy = total === 0 ? 100 : Math.round((correctTotal / total) * 100);
+        accuracyRateEl.innerText = `${accuracy}%`;
+    }
+
+    // 显示短暂反馈 (持久消息 or 临时)
+    function showFeedback(message, isError = false) {
+        if (lastFeedbackTimeout) clearTimeout(lastFeedbackTimeout);
+        feedbackMsgEl.innerHTML = message;
+        if (isError) {
+            feedbackMsgEl.style.background = "#6d2e2ecc";
+            feedbackMsgEl.style.color = "#ffceb3";
+        } else {
+            feedbackMsgEl.style.background = "#0e2e3bcc";
+            feedbackMsgEl.style.color = "#d6f0ff";
+        }
+        lastFeedbackTimeout = setTimeout(() => {
+            if (feedbackMsgEl) {
+                feedbackMsgEl.innerHTML = "✨ 继续练习！按正确目标键，键盘高亮实时反馈 ✨";
+                feedbackMsgEl.style.background = "#071822b3";
+                feedbackMsgEl.style.color = "#c0e0ed";
+            }
+        }, 1500);
+    }
+
+    // 获取随机新字符 (不与当前相同避免过于简单, 但允许相同会失去练习变化, 优先不同)
+    function getRandomPracticeChar(excludeChar = null) {
+        let newChar;
+        do {
+            const randomIndex = Math.floor(Math.random() * PRACTICE_POOL.length);
+            newChar = PRACTICE_POOL[randomIndex];
+        } while (excludeChar !== null && newChar === excludeChar && PRACTICE_POOL.length > 1);
+        return newChar;
+    }
+
+    // 设置新目标并刷新UI
+    function setNewTarget(newChar) {
+        currentTarget = newChar;
+        // 显示为大写字母增强可读性，但对符号保持原样（符号不大写）
+        let displayChar = currentTarget;
+        if (/[a-z]/.test(currentTarget)) {
+            displayChar = currentTarget.toUpperCase();
+        } else {
+            displayChar = currentTarget;
+        }
+        targetCharEl.innerText = displayChar;
+        targetCharEl.setAttribute('data-target', currentTarget);
+    }
+
+    // 正确匹配时调用
+    function handleCorrect() {
+        correctTotal++;
+        updateStatsUI();
+        // 随机抽取下一个字符 (避开当前)
+        const nextChar = getRandomPracticeChar(currentTarget);
+        setNewTarget(nextChar);
+        showFeedback(`✔️ 正确！ 下一个键: ${nextChar === nextChar.toLowerCase() && /[a-z]/.test(nextChar) ? nextChar.toUpperCase() : nextChar}`, false);
+        // 可选播放愉悦提示音效(不加声音避免侵犯)
+    }
+
+    // 错误匹配
+    function handleMistake(pressedKey) {
+        errorTotal++;
+        updateStatsUI();
+        let expectShow = currentTarget;
+        if (/[a-z]/.test(currentTarget)) expectShow = currentTarget.toUpperCase();
+        showFeedback(`❌ 错误！ 应该按 "${expectShow}"， 你按了 "${pressedKey}"，请重试`, true);
+    }
+
+    // 跳过当前键 (不改变统计)
+    function skipCurrent() {
+        const newTarget = getRandomPracticeChar(currentTarget);
+        setNewTarget(newTarget);
+        showFeedback(`⏩ 已跳过，当前新目标: ${/^[a-z]$/.test(newTarget) ? newTarget.toUpperCase() : newTarget}`, false);
+    }
+
+    // 重置统计 (保留当前目标)
+    function resetStatistics() {
+        correctTotal = 0;
+        errorTotal = 0;
+        updateStatsUI();
+        showFeedback(`🧹 统计数据已重置，继续挑战当前键: ${/^[a-z]$/.test(currentTarget) ? currentTarget.toUpperCase() : currentTarget}`, false);
+    }
+
+    // 新练习: 重置所有统计 + 随机新目标
+    function resetFullPractice() {
+        correctTotal = 0;
+        errorTotal = 0;
+        const freshTarget = getRandomPracticeChar(null);
+        setNewTarget(freshTarget);
+        updateStatsUI();
+        showFeedback(`🌟 全新练习开始! 目标字符: ${/^[a-z]$/.test(freshTarget) ? freshTarget.toUpperCase() : freshTarget}`, false);
+    }
+
+    // 核心匹配逻辑: 比较输入的key与当前目标 (忽略字母大小写, 符号精确)
+    function isMatchingExpected(inputKey) {
+        if (!inputKey || inputKey.length !== 1) return false;
+        // 字母比较忽略大小写
+        if (/[a-zA-Z]/.test(currentTarget) && /[a-zA-Z]/.test(inputKey)) {
+            return currentTarget.toLowerCase() === inputKey.toLowerCase();
+        }
+        // 数字或符号直接比较
+        return currentTarget === inputKey;
+    }
+
+    // 全局键盘监听
+    function onKeyDownHandler(e) {
+        // 防止页面滚动等默认行为（尤其是空格、箭头等）
+        const controlKeys = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Backspace', 'Enter'];
+        if (controlKeys.includes(e.code)) {
+            e.preventDefault();
+        } else if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();   // 避免字符输入产生任何弹窗或者输入框内容
+        }
+        
+        const keyCode = e.code;
+        // 高亮对应的虚拟键盘
+        highlightKey(keyCode);
+        
+        // 获取实际按下的字符 (用于匹配练习)
+        let pressedChar = e.key;
+        // 特殊处理，如果key长度不为1且非打印字符，不参与练习匹配
+        if (!pressedChar || pressedChar.length !== 1) {
+            // 仍然高亮但不参与练习匹配
+            return;
+        }
+        
+        // 防止长按重复触发导致多次计数 (event.repeat 过滤长按连发)
+        if (e.repeat) {
+            // 长按时不同步练习避免刷统计，但高亮已做，直接返回
+            return;
+        }
+        
+        // 指法练习匹配（仅当按下的字符长度1时参与）
+        if (isMatchingExpected(pressedChar)) {
+            handleCorrect();
+        } else {
+            // 如果按下的键是字母/数字/符号等但与预期不符，记录错误
+            handleMistake(pressedChar);
+        }
+    }
+    
+    function onKeyUpHandler(e) {
+        const keyCode = e.code;
+        removeHighlightByCode(keyCode);
+    }
+    
+    // 窗口失去焦点时清除高亮
+    function resetHighlightsOnBlur() {
+        clearAllHighlights();
+    }
+    
+    // 初始化所有事件和UI
+    function init() {
+        buildKeyboard();          // 动态生成标准键盘区域
+        bindExtraFunctionalKeys(); // 绑定额外静态行高亮数据（其实html已有data-code，无需额外处理但确保存在）
+        // 确保最后一行已含 data-code 但是可能JS生成的map缺少，额外补充验证: 所有键都有data-code即可。
+        // 起始随机目标
+        const startingTarget = getRandomPracticeChar(null);
+        setNewTarget(startingTarget);
+        correctTotal = 0;
+        errorTotal = 0;
+        updateStatsUI();
+        
+        // 监听全局键盘
+        window.addEventListener('keydown', onKeyDownHandler);
+        window.addEventListener('keyup', onKeyUpHandler);
+        window.addEventListener('blur', resetHighlightsOnBlur);
+        
+        // 按钮事件
+        skipBtn.addEventListener('click', () => skipCurrent());
+        resetStatsBtn.addEventListener('click', () => resetStatistics());
+        newPracticeBtn.addEventListener('click', () => resetFullPractice());
+        
+        // 额外设置如果点击按钮导致聚焦，不会影响键盘监听
+        showFeedback("🎉 程序已启动！按亮键盘，匹配目标字符即可得分", false);
+        
+        // 若某些键在静态行中未正确绑定data-code的情况二次保障：为最后功能行硬编码补一下（虽然已有）
+        const allExtraKeys = [
+            { selector: '.key[data-code="ShiftLeft"]', code: 'ShiftLeft' },
+            { selector: '.key[data-code="ControlLeft"]', code: 'ControlLeft' },
+            { selector: '.key[data-code="AltLeft"]', code: 'AltLeft' },
+            { selector: '.key[data-code="Space"]', code: 'Space' },
+            { selector: '.key[data-code="AltRight"]', code: 'AltRight' },
+            { selector: '.key[data-code="Enter"]', code: 'Enter' },
+            { selector: '.key[data-code="Backspace"]', code: 'Backspace' }
+        ];
+        allExtraKeys.forEach(item => {
+            const el = document.querySelector(item.selector);
+            if (el && !el.hasAttribute('data-code')) {
+                el.setAttribute('data-code', item.code);
+            }
+        });
+    }
+    
+    // 页面启动
+    init();
+</script>
+</body>
+</html>
