@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Style CS - 方块枪战</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="ui">
+            <div id="crosshair">
+                <div class="ch-line ch-top"></div>
+                <div class="ch-line ch-bottom"></div>
+                <div class="ch-line ch-left"></div>
+                <div class="ch-line ch-right"></div>
+                <div class="ch-dot"></div>
+            </div>
+            <div id="hitmarker">
+                <div class="hm-line hm-1"></div>
+                <div class="hm-line hm-2"></div>
+                <div class="hm-line hm-3"></div>
+                <div class="hm-line hm-4"></div>
+            </div>
+            <div id="damage-overlay"></div>
+            <div id="killfeed"></div>
+            <div id="hp-bar-container">
+                <div id="hp-icon">+</div>
+                <div id="hp-bar-bg"><div id="hp-bar-fill"></div></div>
+                <span id="hp-text">100</span>
+            </div>
+            <div id="bottom-hud">
+                <div id="hud-left">
+                    <div><span class="hud-label">SCORE</span><span id="score-value">0</span></div>
+                    <div><span class="hud-label">KILLS</span><span id="kills-value">0</span></div>
+                    <div><span class="hud-label">MAP</span><span id="map-name-display">Arena</span></div>
+                </div>
+                <div id="hud-center">
+                    <div id="controls-bar">
+                        <span class="ctrl-key">W</span><span class="ctrl-key">A</span><span class="ctrl-key">S</span><span class="ctrl-key">D</span>
+                        <span class="ctrl-desc">移动</span><span class="ctrl-sep">|</span>
+                        <span class="ctrl-key">鼠标</span><span class="ctrl-desc">瞄准</span><span class="ctrl-sep">|</span>
+                        <span class="ctrl-key">左键</span><span class="ctrl-desc">射击</span><span class="ctrl-sep">|</span>
+                        <span class="ctrl-key">R</span><span class="ctrl-desc">换弹</span>
+                    </div>
+                </div>
+                <div id="hud-right">
+                    <div id="ammo-display">
+                        <span id="ammo-current">30</span><span class="ammo-sep">/</span><span id="ammo-reserve">90</span>
+                    </div>
+                    <div id="weapon-name">AK-47</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="start-screen">
+            <div id="start-content">
+                <div id="game-title">
+                    <span class="title-mc">MC</span>
+                    <span class="title-style">STYLE</span>
+                    <span class="title-cs">CS</span>
+                </div>
+                <div id="game-subtitle">方块枪战 BLOCK SHOOTER</div>
+
+                <div id="map-select">
+                    <div class="map-label">选择地图</div>
+                    <div id="map-list">
+                        <div class="map-card selected" data-map="arena">
+                            <div class="map-icon">🏟️</div>
+                            <div class="map-info">
+                                <div class="map-name">Arena 竞技场</div>
+                                <div class="map-desc">开阔场地，多掩体混战</div>
+                            </div>
+                        </div>
+                        <div class="map-card" data-map="bloodstrike">
+                            <div class="map-icon">🩸</div>
+                            <div class="map-info">
+                                <div class="map-name">Bloodstrike 血战</div>
+                                <div class="map-desc">经典猪圈，中央对称激斗</div>
+                            </div>
+                        </div>
+                        <div class="map-card" data-map="dust2">
+                            <div class="map-icon">🏜️</div>
+                            <div class="map-info">
+                                <div class="map-name">Dust2 沙漠2</div>
+                                <div class="map-desc">双通道对狙，攻防转换</div>
+                            </div>
+                        </div>
+                        <div class="map-card" data-map="assault">
+                            <div class="map-icon">🏭</div>
+                            <div class="map-info">
+                                <div class="map-name">Assault 突袭</div>
+                                <div class="map-desc">仓库攻防，巷战密室</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="start-btn">点击开始游戏</div>
+                <div id="start-controls">
+                    <div class="sc-row"><span class="sc-key">W A S D</span> 移动</div>
+                    <div class="sc-row"><span class="sc-key">鼠标</span> 瞄准视角</div>
+                    <div class="sc-row"><span class="sc-key">左键</span> 射击</div>
+                    <div class="sc-row"><span class="sc-key">R</span> 换弹</div>
+                    <div class="sc-row"><span class="sc-key">ESC</span> 暂停</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameover-screen" style="display:none;">
+            <div id="gameover-content">
+                <div id="gameover-title">GAME OVER</div>
+                <div id="gameover-stats">
+                    <div class="stat-row"><span class="stat-label">得分</span><span id="final-score">0</span></div>
+                    <div class="stat-row"><span class="stat-label">击杀</span><span id="final-kills">0</span></div>
+                    <div class="stat-row"><span class="stat-label">存活时间</span><span id="final-time">0s</span></div>
+                </div>
+                <div id="restart-btn">重新开始</div>
+            </div>
+        </div>
+
+        <div id="pause-screen" style="display:none;">
+            <div id="pause-content">
+                <div id="pause-title">暂停</div>
+                <div id="pause-hint">点击画面继续游戏</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
