@@ -148,6 +148,8 @@
   #pause { background:rgba(0,0,0,.6); display:none; }
   #pause h1 { font-size:36px; letter-spacing:5px; margin-bottom:24px; text-shadow:2px 2px 0 #000; }
   #pause .tip { margin-top:22px; font-size:12px; color:#aaa; }
+  .btn-col { display:flex; flex-direction:column; gap:14px; align-items:center; }
+  .btn-col .mc-btn { min-width:280px; }
 
   #loading { background:#0d0f0c; z-index:60; }
   #loading .t { font-size:20px; letter-spacing:4px; color:#9ccc65; margin-bottom:18px; }
@@ -221,7 +223,11 @@
 <!-- 暂停 -->
 <div id="pause" class="screen">
   <h1>游戏暂停</h1>
-  <button class="mc-btn" id="btn-resume">返回游戏</button>
+  <div class="btn-col">
+    <button class="mc-btn green" id="btn-resume">返回游戏</button>
+    <button class="mc-btn" id="btn-restart">重新开始</button>
+    <button class="mc-btn" id="btn-to-menu">回到主界面</button>
+  </div>
   <div class="tip">Esc 返回 · 提示：泥土和沙子会被子弹击碎，石头需要更多火力</div>
 </div>
 

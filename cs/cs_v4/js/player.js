@@ -373,16 +373,27 @@ class Player {
     this.world.collide(this.pos, half, height);
     this.pos.z += this.vel.z * dt;
     this.world.collide(this.pos, half, height);
-    this.pos.y += this.vel.y * dt;
-    const prevY = this.pos.y;
+
+    // 垂直移动：比较"期望落点"和"碰撞修正后的实际落点"
+    const dy = this.vel.y * dt;
+    const expectedY = this.pos.y + dy;
+    this.pos.y = expectedY;
     this.world.collide(this.pos, half, height);
-    if (this.pos.y > prevY && this.vel.y < 0) { /* 被顶回 */ }
-    if (this.world.onGround(this.pos, half) && this.vel.y <= 0) {
+    const blockedDown = this.pos.y > expectedY + 1e-4;   // 被向上推 → 脚下有方块
+    const blockedUp   = this.pos.y < expectedY - 1e-4;   // 被向下压 → 头顶有方块
+
+    if (blockedDown && this.vel.y <= 0) {
+      // 落地
       this.grounded = true;
       this.vel.y = 0;
-      // 贴地
-      const gy = Math.floor(this.pos.y - 0.02);
-      if (this.pos.y < gy + 1.02 && this.pos.y > gy) this.pos.y = gy + 1.001;
+    } else if (blockedUp && this.vel.y > 0) {
+      // 撞头
+      this.vel.y = 0;
+      this.grounded = false;
+    } else if (this.vel.y <= 0 && this.world.onGround(this.pos, half)) {
+      // 沿平地行走，保持贴地（不弹跳）
+      this.grounded = true;
+      this.vel.y = 0;
     } else {
       this.grounded = false;
     }
@@ -433,7 +444,18 @@ class Player {
     const bobY = Math.sin(this.bobPhase * 2) * 0.035 * (moving ? 1 : 0);
     const bobX = Math.cos(this.bobPhase) * 0.02 * (moving ? 1 : 0);
 
-    this.camera.position.set(this.pos.x + bobX, this.pos.y + CFG.EYE_HEIGHT + bobY, this.pos.z);
+    // 相机 Y：从高处走下/落地瞬间做平滑，消除画面跳变
+    if (this.smoothEyeY === undefined) this.smoothEyeY = this.pos.y + CFG.EYE_HEIGHT;
+    const targetEyeY = this.pos.y + CFG.EYE_HEIGHT;
+    if (targetEyeY >= this.smoothEyeY - 0.001) {
+      // 上升或平地 → 直接跟随
+      this.smoothEyeY = targetEyeY;
+    } else {
+      // 下落/走下台階 → 快速插值（约 8 帧收敛）
+      this.smoothEyeY = lerp(this.smoothEyeY, targetEyeY, 1 - Math.pow(0.0000001, dt));
+    }
+
+    this.camera.position.set(this.pos.x + bobX, this.smoothEyeY + bobY, this.pos.z);
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = this.yaw;
     this.camera.rotation.x = this.pitch + this.recoil;

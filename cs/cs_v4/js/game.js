@@ -169,6 +169,8 @@ class Game {
     };
     document.getElementById('btn-respawn').onclick = () => { sfx.uiClick(); this.respawn(); };
     document.getElementById('btn-resume').onclick = () => { sfx.uiClick(); this.resume(); };
+    document.getElementById('btn-restart').onclick = () => { sfx.uiClick(); this.restart(); };
+    document.getElementById('btn-to-menu').onclick = () => { sfx.uiClick(); this.toMenu(); };
     document.getElementById('btn-again').onclick = () => location.reload();
     document.getElementById('btn-endless').onclick = () => {
       sfx.uiClick();
@@ -296,15 +298,13 @@ class Game {
 
     const grid = document.getElementById('wave-grid');
     grid.innerHTML = '';
-    const maxUnlocked = this.maxUnlockedWave || 1;
+    // 全部波次任意选择，不加锁定
     for (let w = 1; w <= CFG.TOTAL_WAVES; w++) {
       const cell = document.createElement('div');
-      cell.className = 'wave-cell' + (w > maxUnlocked ? ' locked' : '');
+      cell.className = 'wave-cell';
       const comp = waveComp(w);
       cell.innerHTML = `${w}<small>${comp.length} 敌</small>`;
-      if (w <= maxUnlocked) {
-        cell.onclick = () => { sfx.uiClick(); this.startGame(w); };
-      }
+      cell.onclick = () => { sfx.uiClick(); this.startGame(w); };
       grid.appendChild(cell);
     }
   }
@@ -347,6 +347,49 @@ class Game {
     this.renderer.domElement.requestPointerLock();
     this.waveBanner(`第 ${this.wave} 波`, '再来一次！');
     this.queueWaveSpawn();
+  }
+
+  // 重新开始（从第 1 波重打，重置分数击杀，保留世界）
+  restart() {
+    document.getElementById('pause').style.display = 'none';
+    this.enemies.forEach(e => e.remove());
+    this.enemies = [];
+    this.pendingSpawn = [];
+    this.waveCooldown = false;
+    this.wave = 0;
+    this.kills = 0;
+    this.score = 0;
+    this.endless = false;
+    this.maxUnlockedWave = 1;
+    this.player.spawn();
+    this.updateHUD();
+    this.state = 'playing';
+    this.renderer.domElement.requestPointerLock();
+    this.nextWave();
+  }
+
+  // 回到主界面
+  toMenu() {
+    document.getElementById('pause').style.display = 'none';
+    document.getElementById('death').style.display = 'none';
+    document.getElementById('victory').style.display = 'none';
+    document.getElementById('hud').style.display = 'none';
+    // 清场
+    this.enemies.forEach(e => e.remove());
+    this.enemies = [];
+    this.pendingSpawn = [];
+    this.waveCooldown = false;
+    this.particles.clear();
+    // 重置玩家到出生点，让主菜单背景有生机
+    this.wave = 0;
+    this.kills = 0;
+    this.score = 0;
+    this.endless = false;
+    this.maxUnlockedWave = 1;
+    this.player.spawn();
+    this.updateHUD();
+    this.state = 'menu';
+    document.getElementById('menu').style.display = 'flex';
   }
 
   onPlayerDeath() {
