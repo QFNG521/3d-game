@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>街头格斗 - Street Fighter</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; overflow: hidden; font-family: 'Arial', sans-serif; }
+
+/* ===== 场景管理 ===== */
+.scene { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+.scene.active { display: flex; }
+
+/* ===== 标题画面 ===== */
+#title-screen {
+  background: linear-gradient(180deg, rgba(26,10,46,0.9) 0%, rgba(22,33,62,0.85) 50%, rgba(15,52,96,0.9) 100%);
+  flex-direction: column; align-items: center; justify-content: center;
+  background-size: cover; background-position: center;
+}
+#title-screen h1 {
+  font-size: 72px; color: #ff6b35; text-shadow: 3px 3px 0 #c00, 6px 6px 0 #900;
+  letter-spacing: 8px; margin-bottom: 10px; animation: titlePulse 2s ease-in-out infinite;
+}
+#title-screen .subtitle {
+  font-size: 20px; color: #ffd700; letter-spacing: 12px; margin-bottom: 60px; opacity: 0.8;
+}
+@keyframes titlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.menu-btn {
+  width: 280px; padding: 16px 0; margin: 8px; font-size: 22px; font-weight: bold;
+  color: #fff; background: linear-gradient(180deg, #e74c3c, #c0392b);
+  border: 3px solid #ff6b6b; border-radius: 8px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 3px; transition: all 0.2s;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.menu-btn:hover {
+  background: linear-gradient(180deg, #ff6b6b, #e74c3c);
+  transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,53,0.5);
+}
+.menu-btn:active { transform: scale(0.98); }
+
+/* ===== 选人画面 ===== */
+#select-screen {
+  background: linear-gradient(180deg, rgba(10,10,42,0.85) 0%, rgba(26,26,62,0.8) 100%);
+  flex-direction: column; align-items: center;
+  background-size: cover; background-position: center;
+}
+.select-title {
+  font-size: 36px; color: #ffd700; margin: 20px 0 10px; text-shadow: 2px 2px 4px #000;
+  letter-spacing: 6px;
+}
+.select-subtitle { font-size: 16px; color: #aaa; margin-bottom: 20px; }
+.player-select-area {
+  display: flex; gap: 60px; width: 90%; justify-content: center;
+}
+.player-panel {
+  flex: 1; max-width: 400px; text-align: center;
+}
+.player-label {
+  font-size: 28px; font-weight: bold; margin-bottom: 15px; padding: 8px 20px;
+  border-radius: 8px; display: inline-block;
+}
+.p1-label { color: #00bfff; background: rgba(0,191,255,0.15); border: 2px solid #00bfff; }
+.p2-label { color: #ff4444; background: rgba(255,68,68,0.15); border: 2px solid #ff4444; }
+
+.char-preview {
+  width: 200px; height: 280px; margin: 10px auto; border: 3px solid #444;
+  border-radius: 12px; overflow: hidden; background: #111;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.char-preview canvas { width: 100%; height: 100%; }
+.char-name {
+  font-size: 24px; color: #fff; margin: 8px 0; font-weight: bold;
+  text-shadow: 1px 1px 3px #000;
+}
+.char-stats { font-size: 14px; color: #aaa; margin: 4px 0; }
+
+.char-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  margin: 15px 0; width: 100%;
+}
+.char-card {
+  aspect-ratio: 3/4; border: 3px solid #333; border-radius: 8px; cursor: pointer;
+  overflow: hidden; position: relative; transition: all 0.2s; background: #1a1a2e;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.char-card:hover { border-color: #ffd700; transform: scale(1.05); }
+.char-card.selected-p1 { border-color: #00bfff; box-shadow: 0 0 15px rgba(0,191,255,0.6); }
+.char-card.selected-p2 { border-color: #ff4444; box-shadow: 0 0 15px rgba(255,68,68,0.6); }
+.char-card canvas { width: 80%; height: 70%; }
+.char-card-name { font-size: 12px; color: #fff; padding: 4px; font-weight: bold; }
+
+/* VS标记 */
+.vs-badge {
+  font-size: 60px; font-weight: 900; color: #ff6b35;
+  text-shadow: 3px 3px 0 #000; align-self: center; margin-top: 80px;
+  animation: vsPulse 1s ease-in-out infinite;
+}
+@keyframes vsPulse {
+  0%, 100% { transform: rotate(-5deg) scale(1); }
+  50% { transform: rotate(5deg) scale(1.1); }
+}
+
+.start-fight-btn {
+  margin: 15px 0 25px; padding: 14px 60px; font-size: 26px; font-weight: bold;
+  color: #fff; background: linear-gradient(180deg, #ff6b35, #e74c3c);
+  border: 3px solid #ffd700; border-radius: 10px; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 4px; transition: all 0.2s;
+}
+.start-fight-btn:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(255,215,0,0.5); }
+.start-fight-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ===== 战斗画面 ===== */
+#fight-screen { background: #000; flex-direction: column; }
+.fight-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 30px; background: rgba(0,0,0,0.8); z-index: 10;
+}
+.hp-container { flex: 1; max-width: 420px; }
+.hp-label { font-size: 14px; color: #fff; margin-bottom: 4px; font-weight: bold; }
+.hp-bar-bg {
+  width: 100%; height: 24px; background: #333; border: 2px solid #555;
+  border-radius: 4px; overflow: hidden; position: relative;
+}
+.hp-bar {
+  height: 100%; border-radius: 2px; transition: width 0.3s;
+}
+.hp-bar.p1 { background: linear-gradient(180deg, #00ff88, #00cc66); }
+.hp-bar.p2 { background: linear-gradient(180deg, #ff4444, #cc0000); }
+.hp-bar.p1.low { background: linear-gradient(180deg, #ffaa00, #ff6600); }
+.hp-bar.p2.low { background: linear-gradient(180deg, #ff0000, #880000); }
+.hp-text {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 12px; color: #fff; font-weight: bold; text-shadow: 1px 1px 2px #000;
+}
+.round-info {
+  text-align: center; min-width: 120px;
+}
+.round-info .round-label { font-size: 14px; color: #ffd700; }
+.round-info .timer {
+  font-size: 42px; font-weight: 900; color: #fff;
+  text-shadow: 2px 2px 4px #000;
+}
+.player-name-display { font-size: 16px; font-weight: bold; }
+.p1-name { color: #00bfff; }
+.p2-name { color: #ff4444; }
+
+.fight-arena {
+  flex: 1; position: relative; overflow: hidden;
+}
+#arena-canvas { width: 100%; height: 100%; display: block; }
+
+/* 战斗UI覆盖层 */
+.fight-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 20;
+}
+.announce-text {
+  font-size: 80px; font-weight: 900; color: #fff;
+  text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+  opacity: 0; animation: none;
+}
+.announce-text.show { animation: announceIn 1.5s ease-out forwards; }
+@keyframes announceIn {
+  0% { opacity: 0; transform: scale(3); }
+  20% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8) translateY(-30px); }
+}
+
+.combo-display {
+  position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+  font-size: 48px; font-weight: 900; color: #ffd700;
+  text-shadow: 2px 2px 4px #000; opacity: 0; transition: opacity 0.3s;
+  z-index: 15;
+}
+.combo-display.show { opacity: 1; }
+
+/* ===== 结果画面 ===== */
+#result-screen {
+  background: linear-gradient(180deg, #0a0a2a, #1a0a2e);
+  flex-direction: column; align-items: center; justify-content: center;
+}
+.result-text {
+  font-size: 60px; font-weight: 900; margin-bottom: 20px;
+  text-shadow: 3px 3px 6px #000;
+}
+.winner-name { font-size: 42px; color: #ffd700; margin-bottom: 10px; }
+.win-anim { font-size: 100px; margin: 20px; animation: winBounce 0.5s ease-in-out infinite alternate; }
+@keyframes winBounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+
+/* 操作提示 */
+.controls-hint {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 30px; font-size: 12px; color: #666; z-index: 5;
+}
+.control-group { text-align: center; }
+.control-group .player-tag { font-weight: bold; margin-bottom: 4px; }
+.control-group .player-tag.c1 { color: #00bfff; }
+.control-group .player-tag.c2 { color: #ff4444; }
+
+/* 暂停画面 */
+.pause-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center;
+  flex-direction: column; z-index: 100;
+}
+.pause-overlay.show { display: flex; }
+.pause-overlay h2 { font-size: 60px; color: #ffd700; margin-bottom: 30px; }
+</style>
+</head>
+<body>
+
+<!-- ===== 标题画面 ===== -->
+<div id="title-screen" class="scene active">
+  <h1>STREET FIGHTER</h1>
+  <div class="subtitle">街 头 格 斗</div>
+  <button class="menu-btn" onclick="showScene('select-screen')">⚔ 对战模式</button>
+  <button class="menu-btn" onclick="showControls()">🎮 操作说明</button>
+</div>
+
+<!-- ===== 选人画面 ===== -->
+<div id="select-screen" class="scene">
+  <div class="select-title">— SELECT YOUR FIGHTER —</div>
+  <div class="select-subtitle">P1: WASD + JKL 操作 | P2: 方向键 + 123 操作</div>
+  <div class="player-select-area">
+    <div class="player-panel">
+      <div class="player-label p1-label">PLAYER 1</div>
+      <div class="char-preview" id="p1-preview">
+        <canvas id="p1-preview-canvas" width="200" height="280"></canvas>
+      </div>
+      <div class="char-name" id="p1-char-name">???</div>
+      <div class="char-stats" id="p1-char-stats"></div>
+    </div>
+    <div class="vs-badge">VS</div>
+    <div class="player-panel">
+      <div class="player-label p2-label">PLAYER 2</div>
+      <div class="char-preview" id="p2-preview">
+        <canvas id="p2-preview-canvas" width="200" height="280"></canvas>
+      </div>
+      <div class="char-name" id="p2-char-name">???</div>
+      <div class="char-stats" id="p2-char-stats"></div>
+    </div>
+  </div>
+  <div class="char-grid" id="char-grid"></div>
+  <button class="start-fight-btn" id="start-btn" disabled onclick="startFight()">FIGHT!</button>
+</div>
+
+<!-- ===== 战斗画面 ===== -->
+<div id="fight-screen" class="scene">
+  <div class="fight-hud">
+    <div class="hp-container">
+      <div class="hp-label"><span class="player-name-display p1-name" id="hud-p1-name">P1</span></div>
+      <div class="hp-bar-bg"><div class="hp-bar p1" id="hp-bar-p1" style="width:100%"></div><div class="hp-text" id="hp-text-p1">100</div></div>
+    </div>
+    <div class="round-info">
+      <div class="round-label">ROUND <span id="round-num">1</span></div>
+      <div class="timer" id="timer">99</div>
+    </div>
+    <div class="hp-container">
+      <div class="hp-label" style="text-align:right"><span class="player-name-display p2-name" id="hud-p2-name">P2</span></div>
+      <div class="hp-bar-bg"><div class="hp-bar p2" id="hp-bar-p2" style="width:100%"></div><div class="hp-text" id="hp-text-p2">100</div></div>
+    </div>
+  </div>
+  <div class="fight-arena">
+    <canvas id="arena-canvas"></canvas>
+    <div class="fight-overlay">
+      <div class="announce-text" id="announce"></div>
+    </div>
+    <div class="combo-display" id="combo-display"></div>
+    <div class="pause-overlay" id="pause-overlay">
+      <h2>PAUSED</h2>
+      <button class="menu-btn" onclick="togglePause()">继续</button>
+      <button class="menu-btn" onclick="quitToTitle()">返回标题</button>
+    </div>
+  </div>
+  <div class="controls-hint">
+    <div class="control-group">
+      <div class="player-tag c1">P1 操作</div>
+      <div>W跳跃 A左 D右 S下蹲</div>
+      <div>J拳 K脚 L必杀</div>
+    </div>
+    <div class="control-group">
+      <div class="player-tag c2">P2 操作</div>
+      <div>↑跳跃 ←左 →右 ↓下蹲</div>
+      <div>数字1拳 2脚 3必杀</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 结果画面 ===== -->
+<div id="result-screen" class="scene">
+  <div class="result-text">K.O.!</div>
+  <div class="win-anim">🏆</div>
+  <div class="winner-name" id="winner-name"></div>
+  <button class="menu-btn" onclick="showScene('select-screen')" style="margin-top:30px">再来一局</button>
+  <button class="menu-btn" onclick="showScene('title-screen')">返回标题</button>
+</div>
+
+<script>
+// ============================================================
+//  图片资源加载
+// ============================================================
+const ASSETS = {
+  backgrounds: {},
+  ground: null,
+  characters: {},
+  loaded: false
+};
+
+function loadAssets(callback) {
+  const bgFiles = {
+    'street': 'assets/backgrounds/bg-street.png',
+    'arena': 'assets/backgrounds/bg-arena.png',
+    'rooftop': 'assets/backgrounds/bg-rooftop.png',
+    'temple': 'assets/backgrounds/bg-temple.png'
+  };
+
+  const charFiles = [
+    { id: 'ryu', states: ['idle', 'walk'] }
+  ];
+
+  let loaded = 0;
+  const total = Object.keys(bgFiles).length + 1 + charFiles.reduce((sum, c) => sum + c.states.length, 0);
+
+  function checkDone() {
+    loaded++;
+    console.log(`Loaded ${loaded}/${total}`);
+    if (loaded >= total) {
+      ASSETS.loaded = true;
+      callback();
+    }
+  }
+
+  for (const [key, path] of Object.entries(bgFiles)) {
+    const img = new Image();
+    img.onload = () => { ASSETS.backgrounds[key] = img; checkDone(); };
+    img.onerror = () => { console.warn('Failed to load:', path); checkDone(); };
+    img.src = path;
+  }
+
+  const groundImg = new Image();
+  groundImg.onload = () => { ASSETS.ground = groundImg; checkDone(); };
+  groundImg.onerror = () => { console.warn('Failed to load ground'); checkDone(); };
+  groundImg.src = 'assets/backgrounds/ground.png';
+
+  // 加载角色精灵图
+  charFiles.forEach(char => {
+    ASSETS.characters[char.id] = {};
+    char.states.forEach(state => {
+      const img = new Image();
+      img.onload = () => { ASSETS.characters[char.id][state] = img; checkDone(); };
+      img.onerror = () => { checkDone(); };
+      img.src = `assets/characters/${char.id}/${state}.png`;
+    });
+  });
+}
+
+// ============================================================
+//  角色数据
+// ============================================================
+const CHARACTERS = [
+  {
+    id: 'ryu', name: '隆', nameEn: 'RYU',
+    hp: 100, atk: 12, def: 8, speed: 4,
+    color: '#e8e8e8', color2: '#c0392b',
+    desc: '均衡型 | 波动拳高手',
+    special: '波动拳', specialType: 'projectile',
+    style: 'karate'
+  },
+  {
+    id: 'ken', name: '肯', nameEn: 'KEN',
+    hp: 100, atk: 14, def: 6, speed: 5,
+    color: '#f39c12', color2: '#c0392b',
+    desc: '攻击型 | 升龙拳猛将',
+    special: '升龙拳', specialType: 'uppercut',
+    style: 'karate'
+  },
+  {
+    id: 'chunli', name: '春丽', nameEn: 'CHUN-LI',
+    hp: 90, atk: 10, def: 7, speed: 7,
+    color: '#3498db', color2: '#f1c40f',
+    desc: '速度型 | 百裂脚达人',
+    special: '气功掌', specialType: 'projectile',
+    style: 'kungfu'
+  },
+  {
+    id: 'guile', name: '古烈', nameEn: 'GUILE',
+    hp: 110, atk: 11, def: 10, speed: 3,
+    color: '#27ae60', color2: '#f39c12',
+    desc: '防御型 | 蜘蛛网阵',
+    special: '音速手刀', specialType: 'projectile',
+    style: 'military'
+  },
+  {
+    id: 'zangief', name: '桑吉尔夫', nameEn: 'ZANGIEF',
+    hp: 130, atk: 16, def: 12, speed: 2,
+    color: '#e74c3c', color2: '#8e44ad',
+    desc: '力量型 | 铁爪粉碎者',
+    special: '螺旋打桩', specialType: 'grab',
+    style: 'wrestler'
+  },
+  {
+    id: 'dhalsim', name: '达尔锡', nameEn: 'DHALSIM',
+    hp: 85, atk: 13, def: 5, speed: 4,
+    color: '#f39c12', color2: '#e74c3c',
+    desc: '远程型 | 瑜伽火焰师',
+    special: '瑜伽火焰', specialType: 'projectile',
+    style: 'yogi'
+  },
+  {
+    id: 'honda', name: '本田', nameEn: 'E.HONDA',
+    hp: 120, atk: 13, def: 11, speed: 3,
+    color: '#1abc9c', color2: '#e74c3c',
+    desc: '肉盾型 | 相扑横纲',
+    special: '百贯张手', specialType: 'charge',
+    style: 'sumo'
+  },
+  {
+    id: 'blanka', name: '布兰卡', nameEn: 'BLANKA',
+    hp: 95, atk: 11, def: 7, speed: 6,
+    color: '#2ecc71', color2: '#f39c12',
+    desc: '敏捷型 | 野性电击兽',
+    special: '放电', specialType: 'area',
+    style: 'beast'
+  }
+];
+
+// ============================================================
+//  选人逻辑
+// ============================================================
+let selectedP1 = null, selectedP2 = null;
+let selectingPlayer = 1;
+
+function buildCharGrid() {
+  const grid = document.getElementById('char-grid');
+  grid.innerHTML = '';
+  CHARACTERS.forEach((c, i) => {
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    card.id = 'card-' + c.id;
+    card.onclick = () => selectChar(i);
+    const cvs = document.createElement('canvas');
+    cvs.width = 120; cvs.height = 140;
+    card.appendChild(cvs);
+    const name = document.createElement('div');
+    name.className = 'char-card-name';
+    name.textContent = c.name;
+    card.appendChild(name);
+    grid.appendChild(card);
+    drawCharThumbnail(cvs, c, 60, 80);
+  });
+}
+
+function drawCharThumbnail(cvs, char, cx, cy) {
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  drawFighter(ctx, char, cx, cy, 0.7, 'idle', false, false, 0);
+}
+
+function selectChar(index) {
+  const c = CHARACTERS[index];
+  if (selectingPlayer === 1) {
+    if (selectedP2 === c) return;
+    selectedP1 = c;
+    document.querySelectorAll('.char-card').forEach(el => el.classList.remove('selected-p1'));
+    document.getElementById('card-' + c.id).classList.add('selected-p1');
+    document.getElementById('p1-char-name').textContent = c.name + ' ' + c.nameEn;
+    document.getElementById('p1-char-stats').textContent =
+      `HP:${c.hp} ATK:${c.atk} DEF:${c.def} SPD:${c.speed}`;
+    drawPreview('p1-preview-canvas', c);
+    selectingPlayer = 2;
+  } else {
+    if (selectedP1 === c) return;
+    selectedP2 = c;
+    document.querySelectorAll('.char-card').forEach(el => el.classList.remove('selected-p2'));
+    document.getElementById('card-' + c.id).classList.add('selected-p2');
+    document.getElementById('p2-char-name').textContent = c.name + ' ' + c.nameEn;
+    document.getElementById('p2-char-stats').textContent =
+      `HP:${c.hp} ATK:${c.atk} DEF:${c.def} SPD:${c.speed}`;
+    drawPreview('p2-preview-canvas', c);
+    selectingPlayer = 1;
+  }
+  document.getElementById('start-btn').disabled = !(selectedP1 && selectedP2);
+}
+
+function drawPreview(canvasId, char) {
+  const cvs = document.getElementById(canvasId);
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  drawFighter(ctx, char, 100, 160, 1.8, 'idle', false, false, 0);
+}
+
+// ============================================================
+//  绘制角色 (程序化生成占位)
+// ============================================================
+function drawFighter(ctx, char, cx, cy, scale, state, facingLeft, isHit, frame) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(facingLeft ? -scale : scale, scale);
+
+  // 检查是否有精灵图
+  const spriteState = (state === 'punch' || state === 'kick' || state === 'special') ? 'idle' : state;
+  const charSprites = ASSETS.characters[char.id];
+  if (charSprites && charSprites[spriteState]) {
+    const img = charSprites[spriteState];
+    const imgScale = 120 / img.width;
+    ctx.drawImage(img, -60, -80, 120, img.height * imgScale);
+    if (isHit) {
+      ctx.globalAlpha = 0.4;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(-60, -80, 120, img.height * imgScale);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    return;
+  }
+
+  const s = Math.sin(frame * 0.1) * 2;
+  const breathY = Math.sin(frame * 0.08) * 1.5;
+
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, 55, 25, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 腿
+  ctx.fillStyle = '#2c3e50';
+  if (state === 'walk') {
+    const legOff = Math.sin(frame * 0.3) * 8;
+    ctx.fillRect(-10, 30, 8, 25 + legOff);
+    ctx.fillRect(2, 30, 8, 25 - legOff);
+  } else if (state === 'jump') {
+    ctx.fillRect(-12, 30, 8, 18);
+    ctx.fillRect(4, 30, 8, 18);
+  } else if (state === 'crouch') {
+    ctx.fillRect(-12, 35, 10, 15);
+    ctx.fillRect(2, 35, 10, 15);
+  } else if (state === 'kick') {
+    ctx.fillRect(-10, 30, 8, 25);
+    ctx.fillRect(2, 28, 20, 8);
+  } else {
+    ctx.fillRect(-10, 30, 8, 25 + s);
+    ctx.fillRect(2, 30, 8, 25 - s);
+  }
+
+  // 鞋
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(-12, 52, 12, 5);
+  ctx.fillRect(0, 52, 12, 5);
+
+  // 身体
+  ctx.fillStyle = char.color;
+  ctx.fillRect(-14, -5 + breathY, 28, 38);
+
+  // 腰带
+  ctx.fillStyle = char.color2;
+  ctx.fillRect(-14, 25 + breathY, 28, 6);
+
+  // 手臂
+  ctx.fillStyle = '#f0d9b5';
+  if (state === 'punch') {
+    ctx.fillRect(-22, 0 + breathY, 12, 8);
+    ctx.fillRect(8, -2 + breathY, 30, 8);
+    ctx.fillStyle = '#f0d9b5';
+    ctx.fillRect(36, -4 + breathY, 10, 12);
+  } else if (state === 'kick') {
+    ctx.fillRect(-20, 0 + breathY, 12, 8);
+    ctx.fillRect(8, 0 + breathY, 12, 8);
+  } else if (state === 'special') {
+    ctx.fillRect(-20, -5 + breathY, 12, 8);
+    ctx.fillRect(8, -5 + breathY, 35, 8);
+    ctx.fillStyle = '#ff6';
+    ctx.beginPath();
+    ctx.arc(44, -1 + breathY, 8, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.fillRect(-22, 0 + breathY, 12, 8);
+    ctx.fillRect(10, 0 + breathY, 12, 8);
+  }
+
+  // 头
+  ctx.fillStyle = '#f0d9b5';
+  ctx.beginPath();
+  ctx.arc(0, -18 + breathY, 16, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 头发
+  ctx.fillStyle = char.id === 'chunli' ? '#1a1a2e' :
+                  char.id === 'blanka' ? '#27ae60' :
+                  char.id === 'guile' ? '#f39c12' : '#1a1a2e';
+  if (char.id === 'chunli') {
+    ctx.beginPath();
+    ctx.arc(0, -22 + breathY, 16, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(-18, -20 + breathY, 6, 15);
+    ctx.fillRect(12, -20 + breathY, 6, 15);
+  } else if (char.id === 'guile') {
+    ctx.fillRect(-12, -34 + breathY, 24, 14);
+  } else if (char.id === 'zangief') {
+    ctx.fillRect(-14, -32 + breathY, 28, 10);
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, -22 + breathY, 14, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // 头带
+  if (char.id === 'ryu' || char.id === 'ken') {
+    ctx.fillStyle = char.color2;
+    ctx.fillRect(-16, -24 + breathY, 32, 4);
+  }
+
+  // 眼睛
+  ctx.fillStyle = '#000';
+  ctx.fillRect(-6, -20 + breathY, 3, 3);
+  ctx.fillRect(3, -20 + breathY, 3, 3);
+
+  // 嘴
+  if (state === 'hit') {
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(-3, -12 + breathY, 6, 4);
+  } else {
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(-2, -13 + breathY, 4, 2);
+  }
+
+  // 受击闪烁
+  if (isHit) {
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-30, -40, 60, 100);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+//  战斗系统
+// ============================================================
+let gameRunning = false;
+let gamePaused = false;
+let gameLoop = null;
+let timerInterval = null;
+let timeLeft = 99;
+let roundNum = 1;
+let currentBackground = 'street';
+
+const P1_KEYS = { left:'KeyA', right:'KeyD', up:'KeyW', down:'KeyS', punch:'KeyJ', kick:'KeyK', special:'KeyL' };
+const P2_KEYS = { left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', down:'ArrowDown', punch:'Numpad1', kick:'Numpad2', special:'Numpad3' };
+
+// 备用P2键位（无小键盘时）
+const P2_KEYS_ALT = { punch:'Digit1', kick:'Digit2', special:'Digit3' };
+
+let keys = {};
+let p1, p2;
+
+function createFighter(charData, x, facingLeft) {
+  return {
+    char: charData,
+    x: x, y: 0,
+    vx: 0, vy: 0,
+    hp: charData.hp, maxHp: charData.hp,
+    facingLeft: facingLeft,
+    state: 'idle', stateFrame: 0,
+    isHit: false, hitTimer: 0,
+    isBlocking: false,
+    combo: 0, comboTimer: 0,
+    attackCooldown: 0,
+    canAttack: true,
+    grounded: true,
+    specialCooldown: 0,
+    projectile: null,
+    wins: 0
+  };
+}
+
+function startFight() {
+  if (!selectedP1 || !selectedP2) return;
+  const canvas = document.getElementById('arena-canvas');
+  const arena = document.querySelector('.fight-arena');
+  canvas.width = arena.clientWidth;
+  canvas.height = arena.clientHeight;
+  const groundY = canvas.height - 80;
+
+  // 随机选择背景
+  const bgKeys = Object.keys(ASSETS.backgrounds);
+  if (bgKeys.length > 0) {
+    currentBackground = bgKeys[Math.floor(Math.random() * bgKeys.length)];
+  }
+
+  p1 = createFighter(selectedP1, canvas.width * 0.25, false);
+  p2 = createFighter(selectedP2, canvas.width * 0.75, true);
+
+  roundNum = 1;
+  document.getElementById('round-num').textContent = roundNum;
+
+  document.getElementById('hud-p1-name').textContent = selectedP1.name;
+  document.getElementById('hud-p2-name').textContent = selectedP2.name;
+
+  showScene('fight-screen');
+  updateHUD();
+
+  announce('ROUND 1', () => {
+    announce('FIGHT!', () => {
+      gameRunning = true;
+      gameLoop = requestAnimationFrame(update);
+      startTimer();
+    });
+  });
+}
+
+function startTimer() {
+  timeLeft = 99;
+  document.getElementById('timer').textContent = timeLeft;
+  timerInterval = setInterval(() => {
+    if (!gameRunning || gamePaused) return;
+    timeLeft--;
+    document.getElementById('timer').textContent = timeLeft;
+    if (timeLeft <= 0) endRound();
+  }, 1000);
+}
+
+function announce(text, cb) {
+  const el = document.getElementById('announce');
+  el.textContent = text;
+  el.className = 'announce-text show';
+  setTimeout(() => { el.className = 'announce-text'; if (cb) cb(); }, 1500);
+}
+
+function updateHUD() {
+  const p1pct = Math.max(0, p1.hp / p1.maxHp * 100);
+  const p2pct = Math.max(0, p2.hp / p2.maxHp * 100);
+  document.getElementById('hp-bar-p1').style.width = p1pct + '%';
+  document.getElementById('hp-bar-p2').style.width = p2pct + '%';
+  document.getElementById('hp-text-p1').textContent = Math.max(0, Math.ceil(p1.hp));
+  document.getElementById('hp-text-p2').textContent = Math.max(0, Math.ceil(p2.hp));
+
+  document.getElementById('hp-bar-p1').classList.toggle('low', p1pct < 30);
+  document.getElementById('hp-bar-p2').classList.toggle('low', p2pct < 30);
+}
+
+function update() {
+  if (!gameRunning || gamePaused) return;
+  const canvas = document.getElementById('arena-canvas');
+  const W = canvas.width;
+  const groundY = canvas.height - 80;
+
+  // 处理输入
+  processInput(p1, P1_KEYS, null, W, groundY, p2);
+  processInput(p2, P2_KEYS, P2_KEYS_ALT, W, groundY, p1);
+
+  // 物理
+  [p1, p2].forEach(f => {
+    f.x += f.vx;
+    f.y += f.vy;
+    f.vx *= 0.85;
+
+    if (!f.grounded) {
+      f.vy += 0.8;
+      if (f.y >= 0) { f.y = 0; f.vy = 0; f.grounded = true; }
+    }
+
+    f.x = Math.max(30, Math.min(W - 30, f.x));
+
+    if (f.hitTimer > 0) {
+      f.hitTimer--;
+      if (f.hitTimer <= 0) f.isHit = false;
+    }
+    if (f.attackCooldown > 0) f.attackCooldown--;
+    if (f.specialCooldown > 0) f.specialCooldown--;
+    if (f.comboTimer > 0) {
+      f.comboTimer--;
+      if (f.comboTimer <= 0) f.combo = 0;
+    }
+    f.stateFrame++;
+  });
+
+  // 朝向
+  if (p1.x < p2.x) { p1.facingLeft = false; p2.facingLeft = true; }
+  else { p1.facingLeft = true; p2.facingLeft = false; }
+
+  // 碰撞检测 - 投射物
+  checkProjectiles(p1, p2);
+  checkProjectiles(p2, p1);
+
+  // 碰撞检测 - 近战
+  if (p1.state === 'punch' && p1.attackCooldown === 0) {
+    const dist = Math.abs(p1.x - p2.x);
+    if (dist < 70) {
+      dealDamage(p1, p2, 'punch');
+      p1.attackCooldown = 15;
+    }
+  }
+  if (p1.state === 'kick' && p1.attackCooldown === 0) {
+    const dist = Math.abs(p1.x - p2.x);
+    if (dist < 80) {
+      dealDamage(p1, p2, 'kick');
+      p1.attackCooldown = 20;
+    }
+  }
+  if (p2.state === 'punch' && p2.attackCooldown === 0) {
+    const dist = Math.abs(p1.x - p2.x);
+    if (dist < 70) {
+      dealDamage(p2, p1, 'punch');
+      p2.attackCooldown = 15;
+    }
+  }
+  if (p2.state === 'kick' && p2.attackCooldown === 0) {
+    const dist = Math.abs(p1.x - p2.x);
+    if (dist < 80) {
+      dealDamage(p2, p1, 'kick');
+      p2.attackCooldown = 20;
+    }
+  }
+
+  // 更新状态显示
+  updateFighterState(p1);
+  updateFighterState(p2);
+
+  // 渲染
+  render(canvas, groundY);
+
+  // 检查胜负
+  if (p1.hp <= 0 || p2.hp <= 0) { endRound(); return; }
+
+  gameLoop = requestAnimationFrame(update);
+}
+
+function processInput(fighter, keys_def, alt_def, W, groundY, opponent) {
+  let moving = false;
+
+  if (keys[keys_def.left]) { fighter.x -= fighter.char.speed; moving = true; }
+  if (keys[keys_def.right]) { fighter.x += fighter.char.speed; moving = true; }
+  if (keys[keys_def.up] && fighter.grounded) {
+    fighter.vy = -14;
+    fighter.grounded = false;
+  }
+  if (keys[keys_def.down]) { /* crouch */ }
+
+  // 攻击
+  if (keys[keys_def.punch] || (alt_def && keys[alt_def.punch])) {
+    if (fighter.canAttack && fighter.attackCooldown <= 0 && fighter.grounded) {
+      fighter.state = 'punch';
+      fighter.stateFrame = 0;
+      fighter.canAttack = false;
+      fighter.attackCooldown = 18;
+    }
+  } else if (keys[keys_def.kick] || (alt_def && keys[alt_def.kick])) {
+    if (fighter.canAttack && fighter.attackCooldown <= 0 && fighter.grounded) {
+      fighter.state = 'kick';
+      fighter.stateFrame = 0;
+      fighter.canAttack = false;
+      fighter.attackCooldown = 22;
+    }
+  } else if ((keys[keys_def.special] || (alt_def && keys[alt_def.special])) && fighter.specialCooldown <= 0) {
+    if (fighter.canAttack && fighter.grounded) {
+      fighter.state = 'special';
+      fighter.stateFrame = 0;
+      fighter.canAttack = false;
+      fighter.specialCooldown = 40;
+      fighter.attackCooldown = 25;
+      launchSpecial(fighter);
+    }
+  }
+
+  if (!keys[keys_def.punch] && !keys[keys_def.kick] && !keys[keys_def.special] &&
+      (!alt_def || (!keys[alt_def.punch] && !keys[alt_def.kick] && !keys[alt_def.special]))) {
+    fighter.canAttack = true;
+  }
+
+  if (moving && fighter.grounded && fighter.state !== 'punch' && fighter.state !== 'kick' && fighter.state !== 'special') {
+    fighter.state = 'walk';
+  } else if (!moving && fighter.grounded && fighter.state !== 'punch' && fighter.state !== 'kick' && fighter.state !== 'special') {
+    fighter.state = 'idle';
+  }
+}
+
+function launchSpecial(fighter) {
+  const dir = fighter.facingLeft ? -1 : 1;
+  fighter.projectile = {
+    x: fighter.x + dir * 40,
+    y: fighter.y + 10,
+    vx: dir * 8,
+    damage: fighter.char.atk * 1.5,
+    life: 60,
+    type: fighter.char.specialType
+  };
+}
+
+function checkProjectiles(attacker, defender) {
+  if (!attacker.projectile) return;
+  const proj = attacker.projectile;
+  proj.x += proj.vx;
+  proj.life--;
+
+  const dist = Math.abs(proj.x - defender.x);
+  const yDist = Math.abs(proj.y - (defender.y + 10));
+
+  if (dist < 35 && yDist < 40) {
+    defender.hp -= proj.damage;
+    defender.isHit = true;
+    defender.hitTimer = 10;
+    defender.vx = (attacker.facingLeft ? -1 : 1) * 5;
+    attacker.combo++;
+    attacker.comboTimer = 60;
+    showCombo(attacker);
+    attacker.projectile = null;
+  } else if (proj.life <= 0 || proj.x < -50 || proj.x > 900) {
+    attacker.projectile = null;
+  }
+}
+
+function dealDamage(attacker, defender, type) {
+  const baseDmg = type === 'kick' ? attacker.char.atk * 1.2 : attacker.char.atk;
+  const dmg = Math.max(1, baseDmg - defender.char.def * 0.3);
+  defender.hp -= dmg;
+  defender.isHit = true;
+  defender.hitTimer = 8;
+  defender.vx = (attacker.facingLeft ? -1 : 1) * 4;
+  attacker.combo++;
+  attacker.comboTimer = 60;
+  showCombo(attacker);
+}
+
+function showCombo(attacker) {
+  if (attacker.combo >= 2) {
+    const el = document.getElementById('combo-display');
+    el.textContent = attacker.combo + ' HIT COMBO!';
+    el.className = 'combo-display show';
+    setTimeout(() => { el.className = 'combo-display'; }, 1500);
+  }
+}
+
+function updateFighterState(fighter) {
+  if (fighter.stateFrame > 15 && (fighter.state === 'punch' || fighter.state === 'kick')) {
+    fighter.state = fighter.grounded ? 'idle' : 'jump';
+  }
+  if (fighter.stateFrame > 20 && fighter.state === 'special') {
+    fighter.state = fighter.grounded ? 'idle' : 'jump';
+  }
+  if (!fighter.grounded) fighter.state = 'jump';
+}
+
+// ============================================================
+//  渲染
+// ============================================================
+const bgGradientColors = ['#1a0a2e', '#16213e', '#0f3460'];
+
+function render(canvas, groundY) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 绘制背景图片
+  const bgImg = ASSETS.backgrounds[currentBackground] || ASSETS.backgrounds[Object.keys(ASSETS.backgrounds)[0]];
+  if (bgImg) {
+    const scale = Math.max(W / bgImg.width, H / bgImg.height);
+    const imgW = bgImg.width * scale;
+    const imgH = bgImg.height * scale;
+    ctx.drawImage(bgImg, (W - imgW) / 2, (H - imgH) / 2, imgW, imgH);
+  } else {
+    // 降级渲染 - 渐变背景
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, '#0a0a2a');
+    bgGrad.addColorStop(0.6, '#1a1a3e');
+    bgGrad.addColorStop(1, '#0a0a2a');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 绘制地面
+  if (ASSETS.ground) {
+    ctx.drawImage(ASSETS.ground, 0, groundY, W, H - groundY);
+  } else {
+    ctx.fillStyle = '#2a2a3e';
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillStyle = '#3a3a4e';
+    ctx.fillRect(0, groundY, W, 3);
+  }
+
+  // 绘制角色
+  drawFighter(ctx, p1.char, p1.x, groundY + p1.y, 1.6, p1.state, p1.facingLeft, p1.isHit, p1.stateFrame);
+  drawFighter(ctx, p2.char, p2.x, groundY + p2.y, 1.6, p2.state, p2.facingLeft, p2.isHit, p2.stateFrame);
+
+  // 投射物
+  [p1, p2].forEach(f => {
+    if (f.projectile) {
+      const p = f.projectile;
+      ctx.save();
+      if (f.char.specialType === 'projectile') {
+        ctx.fillStyle = '#00aaff';
+        ctx.shadowColor = '#00aaff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (f.char.specialType === 'area') {
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(f.x, groundY + f.y, 40, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  });
+}
+
+// ============================================================
+//  结束回合
+// ============================================================
+function endRound() {
+  gameRunning = false;
+  cancelAnimationFrame(gameLoop);
+  clearInterval(timerInterval);
+
+  let winner;
+  if (p1.hp <= 0) { winner = p2; }
+  else if (p2.hp <= 0) { winner = p1; }
+  else { winner = p1.hp >= p2.hp ? p1 : p2; }
+
+  winner.wins++;
+
+  announce('K.O.!', () => {
+    document.getElementById('winner-name').textContent =
+      winner.char.name + ' ' + winner.char.nameEn + ' WINS!';
+    showScene('result-screen');
+  });
+}
+
+// ============================================================
+//  场景管理
+// ============================================================
+function showScene(id) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  gameRunning = false;
+  cancelAnimationFrame(gameLoop);
+  clearInterval(timerInterval);
+  if (id === 'select-screen') {
+    buildCharGrid();
+    selectedP1 = null;
+    selectedP2 = null;
+    selectingPlayer = 1;
+    document.getElementById('p1-char-name').textContent = '???';
+    document.getElementById('p2-char-name').textContent = '???';
+    document.getElementById('p1-char-stats').textContent = '';
+    document.getElementById('p2-char-stats').textContent = '';
+    document.getElementById('start-btn').disabled = true;
+    const p1c = document.getElementById('p1-preview-canvas');
+    const p2c = document.getElementById('p2-preview-canvas');
+    p1c.getContext('2d').clearRect(0, 0, 200, 280);
+    p2c.getContext('2d').clearRect(0, 0, 200, 280);
+  }
+}
+
+function togglePause() {
+  gamePaused = !gamePaused;
+  document.getElementById('pause-overlay').classList.toggle('show', gamePaused);
+}
+
+function quitToTitle() {
+  gamePaused = false;
+  document.getElementById('pause-overlay').classList.remove('show');
+  showScene('title-screen');
+}
+
+function showControls() {
+  alert(
+    '【P1 操作】\n' +
+    'W: 跳跃 | A: 左移 | D: 右移 | S: 下蹲\n' +
+    'J: 拳击 | K: 踢腿 | L: 必杀技\n\n' +
+    '【P2 操作】\n' +
+    '↑: 跳跃 | ←: 左移 | →: 右移 | ↓: 下蹲\n' +
+    '数字1: 拳击 | 数字2: 踢腿 | 数字3: 必杀技\n\n' +
+    'ESC: 暂停'
+  );
+}
+
+// ============================================================
+//  键盘事件
+// ============================================================
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Escape' && gameRunning) togglePause();
+  e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+
+// 初始化
+loadAssets(() => {
+  buildCharGrid();
+  // 设置标题画面背景
+  const titleBg = ASSETS.backgrounds['rooftop'] || ASSETS.backgrounds[Object.keys(ASSETS.backgrounds)[0]];
+  if (titleBg) {
+    document.getElementById('title-screen').style.backgroundImage = `url(${titleBg.src})`;
+  }
+  // 设置选人画面背景
+  const selectBg = ASSETS.backgrounds['arena'] || ASSETS.backgrounds[Object.keys(ASSETS.backgrounds)[0]];
+  if (selectBg) {
+    document.getElementById('select-screen').style.backgroundImage = `url(${selectBg.src})`;
+  }
+  console.log('Assets loaded:', ASSETS);
+});
+</script>
+</body>
+</html>

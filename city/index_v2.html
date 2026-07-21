@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>未来赛博都市 · 智能重构版</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'SF Pro Display', 'Helvetica Neue', 'PingFang SC', sans-serif;
+      background-color: #0b0b1a;
+    }
+    #ui-container {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: white;
+      background: rgba(11, 11, 26, 0.65);
+      padding: 16px 24px;
+      border-radius: 16px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .time-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #time-display { font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.3); }
+    #time-icon { font-size: 2rem; }
+    #city-status { font-size: 0.8rem; color: #8a8ab0; letter-spacing: 1px; }
+    #controls-hint {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(15, 15, 35, 0.8);
+      padding: 12px 32px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+      letter-spacing: 1px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      white-space: nowrap;
+      text-align: center;
+    }
+    #mode-indicator {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #00ffcc;
+      background: rgba(11, 11, 26, 0.8);
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 204, 0.3);
+      pointer-events: none;
+      letter-spacing: 1px;
+      box-shadow: 0 0 15px rgba(0,255,204,0.15);
+    }
+    @media (max-width: 768px) {
+      #controls-hint { font-size: 0.75rem; padding: 10px 20px; bottom: 15px; white-space: normal; width: 80%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="ui-container">
+    <div class="time-wrapper">
+      <span id="time-icon">🛸</span>
+      <span id="time-display">06:00</span>
+    </div>
+    <div id="city-status">NEXUS CITY // 系统运行正常</div>
+  </div>
+  <div id="controls-hint">
+    🖱️ 鼠标拖拽旋转视角 / 滚轮缩放 | ⌨️ WASD 移动 | 🔘 <b>P 键</b>切换漫步模式
+  </div>
+  <div id="mode-indicator">🚁 智能鸟瞰控制中</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ---------- 核心初始化 ----------
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050510);
+    scene.fog = new THREE.FogExp2(0x050510, 0.0035);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.5, 800);
+    camera.position.set(60, 70, 110);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    document.body.appendChild(renderer.domElement);
+
+    // ---------- 升级版高级光照 ----------
+    const ambientLight = new THREE.AmbientLight(0x1a2340, 0.8);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x7391ff, 0x111124, 0.6);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff3e0, 4.0);
+    sunLight.position.set(120, 90, 50);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048; // 提升阴影分辨率
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 400;
+    const dSide = 120;
+    sunLight.shadow.camera.left = -dSide;
+    sunLight.shadow.camera.right = dSide;
+    sunLight.shadow.camera.top = dSide;
+    sunLight.shadow.camera.bottom = -dSide;
+    sunLight.shadow.bias = -0.0003;
+    scene.add(sunLight);
+
+    const moonLight = new THREE.DirectionalLight(0x3366ff, 1.2);
+    moonLight.position.set(-100, 60, -80);
+    scene.add(moonLight);
+
+    // ---------- 现代数字化网格底座 ----------
+    const groundGeo = new THREE.PlaneGeometry(500, 500);
+    const groundMat = new THREE.MeshStandardMaterial({ 
+      color: 0x12141c, 
+      roughness: 0.7, 
+      metalness: 0.2,
+      flatShading: true 
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // 辅助科技感网格线
+    const gridHelper = new THREE.GridHelper(400, 40, 0x00ffcc, 0x1f2438);
+    gridHelper.position.y = 0.02;
+    gridHelper.material.opacity = 0.25;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+
+    // ---------- 智能城市规划布局 ----------
+    const roadWidth = 9;
+    const roadSpacing = 50;
+    const roadCoords = [-2, -1, 0, 1, 2].map(i => i * roadSpacing);
+    const blockBounds = [];
+
+    // 预留中央公园/广场 [0, 0] 不生成常规建筑
+    for (let i = 0; i < roadCoords.length - 1; i++) {
+      for (let j = 0; j < roadCoords.length - 1; j++) {
+        if (i === 1 && j === 1) continue; // 中央留空给地标广场
+        blockBounds.push({
+          minZ: roadCoords[i] + roadWidth/2 + 3,
+          maxZ: roadCoords[i+1] - roadWidth/2 - 3,
+          minX: roadCoords[j] + roadWidth/2 + 3,
+          maxX: roadCoords[j+1] - roadWidth/2 - 3
+        });
+      }
+    }
+
+    // ---------- 道路与管线系统 ----------
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x16171f, roughness: 0.5 });
+    const lineMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 0.8 });
+    const vehiclePaths = [];
+
+    function buildCustomRoads() {
+      roadCoords.forEach(coord => {
+        // 横向公路
+        const hRoad = new THREE.Mesh(new THREE.BoxGeometry(400, 0.1, roadWidth), roadMat);
+        hRoad.position.set(0, 0.05, coord);
+        hRoad.receiveShadow = true;
+        scene.add(hRoad);
+
+        // 纵向公路
+        const vRoad = new THREE.Mesh(new THREE.BoxGeometry(roadWidth, 0.1, 400), roadMat);
+        vRoad.position.set(coord, 0.05, 0);
+        vRoad.receiveShadow = true;
+        scene.add(vRoad);
+
+        // 智能双向车道线轨迹记录
+        vehiclePaths.push({ start: new THREE.Vector3(-200, 0.2, coord - roadWidth/4), end: new THREE.Vector3(200, 0.2, coord - roadWidth/4), dir: new THREE.Vector3(1,0,0) });
+        vehiclePaths.push({ start: new THREE.Vector3(200, 0.2, coord + roadWidth/4), end: new THREE.Vector3(-200, 0.2, coord + roadWidth/4), dir: new THREE.Vector3(-1,0,0) });
+        vehiclePaths.push({ start: new THREE.Vector3(coord - roadWidth/4, 0.2, -200), end: new THREE.Vector3(coord - roadWidth/4, 0.2, 200), dir: new THREE.Vector3(0,0,1) });
+        vehiclePaths.push({ start: new THREE.Vector3(coord + roadWidth/4, 0.2, 200), end: new THREE.Vector3(coord + roadWidth/4, 0.2, -200), dir: new THREE.Vector3(0,0,-1) });
+      });
+    }
+    buildCustomRoads();
+
+    // ---------- 核心高级建筑重构系统 ----------
+    const buildingsGroup = new THREE.Group();
+    scene.add(buildingsGroup);
+
+    const buildingColliders = [];
+    const neonMaterials = [];
+    const windowMaterials = [];
+    const beaconMeshes = []; // 楼顶闪烁航空灯
+
+    // 建筑主题高级材质库
+    const bMats = [
+      new THREE.MeshStandardMaterial({ color: 0x1d2130, metalness: 0.6, roughness: 0.2, flatShading: true }), // 科技蓝玻璃感
+      new THREE.MeshStandardMaterial({ color: 0x2a2a35, metalness: 0.4, roughness: 0.4, flatShading: true }), // 钛金黑
+      new THREE.MeshStandardMaterial({ color: 0x3d3530, metalness: 0.7, roughness: 0.3, flatShading: true }), // 奢华铜金
+      new THREE.MeshStandardMaterial({ color: 0x222c2a, metalness: 0.5, roughness: 0.2, flatShading: true })  // 翡翠绿玻
+    ];
+
+    function createAdvancedBuilding(x, z, w, d, h, styleIndex) {
+      const bGroup = new THREE.Group();
+      
+      // 1. 主体几何
+      const bodyMat = bMats[styleIndex % bMats.length];
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bodyMat);
+      body.position.y = h / 2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      bGroup.add(body);
+
+      // 2. 矩阵式数字化发光窗户重构
+      const winEColor = styleIndex % 2 === 0 ? 0xffbb44 : 0x44ccff;
+      const winMat = new THREE.MeshStandardMaterial({
+        color: 0x111118,
+        emissive: winEColor,
+        emissiveIntensity: 0.2,
+        roughness: 0.1
+      });
+      windowMaterials.push(winMat);
+
+      const rows = Math.floor(h / 2.5);
+      const cols = Math.floor(w / 2.0);
+      if (rows > 2 && cols > 1) {
+        const winGeo = new THREE.BoxGeometry(0.5, 1.0, 0.05);
+        for (let r = 1; r < rows - 1; r++) {
+          const py = r * 2.5;
+          for (let c = 0; c < cols; c++) {
+            if (Math.random() > 0.15) { // 留白率让城市更自然
+              const px = -w/2 + 1.0 + c * 2.0;
+              if (px > w/2 - 0.8) continue;
+              
+              const frontW = new THREE.Mesh(winGeo, winMat);
+              frontW.position.set(px, py, d/2 + 0.02);
+              bGroup.add(frontW);
+
+              const backW = new THREE.Mesh(winGeo, winMat);
+              backW.position.set(px, py, -d/2 - 0.02);
+              bGroup.add(backW);
+            }
+          }
+        }
+      }
+
+      // 3. 增加赛博霓虹线条元素 (重构关键美感)
+      const neonColor = [0x00ffcc, 0xff0055, 0x9900ff][styleIndex % 3];
+      const neonMat = new THREE.MeshStandardMaterial({
+        color: neonColor,
+        emissive: neonColor,
+        emissiveIntensity: 1.0
+      });
+      neonMaterials.push(neonMat);
+
+      // 垂直发光线条
+      const barGeo = new THREE.BoxGeometry(0.15, h, 0.15);
+      const bar1 = new THREE.Mesh(barGeo, neonMat); bar1.position.set(w/2+0.02, h/2, d/2+0.02); bGroup.add(bar1);
+      const bar2 = new THREE.Mesh(barGeo, neonMat); bar2.position.set(-w/2-0.02, h/2, -d/2-0.02); bGroup.add(bar2);
+
+      // 4. 楼顶建筑美化与航空闪烁灯
+      if (h > 20) {
+        const roofCap = new THREE.Mesh(new THREE.BoxGeometry(w*0.7, 2, d*0.7), bodyMat);
+        roofCap.position.y = h + 1;
+        bGroup.add(roofCap);
+
+        const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 4, 4), new THREE.MeshStandardMaterial({ color: 0x333 }));
+        antenna.position.set(0, h + 3, 0);
+        bGroup.add(antenna);
+
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.25, 4, 4), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+        beacon.position.set(0, h + 5, 0);
+        bGroup.add(beacon);
+        beaconMeshes.push(beacon);
+      }
+
+      bGroup.position.set(x, 0, z);
+      return bGroup;
+    }
+
+    // 智组装模块化建筑群
+    blockBounds.forEach((bounds, idx) => {
+      const { minX, maxX, minZ, maxZ } = bounds;
+      const bWidth = maxX - minX;
+      const bDepth = maxZ - minZ;
+      
+      // 每个街区排布不同体量的摩天大楼与裙楼
+      for (let a = 0; a < 8; a++) {
+        const w = 6 + Math.random() * 10;
+        const d = 6 + Math.random() * 10;
+        // 核心区建筑更高耸
+        const distToCenter = Math.sqrt(Math.pow((minX+maxX)/2, 2) + Math.pow((minZ+maxZ)/2, 2));
+        const heightBias = distToCenter < 80 ? 25 : 5;
+        const h = 10 + Math.random() * 25 + heightBias;
+
+        if (w > bWidth - 2 || d > bDepth - 2) continue;
+        const px = minX + w/2 + Math.random() * (bWidth - w);
+        const pz = minZ + d/2 + Math.random() * (bDepth - d);
+
+        let overlap = false;
+        for (const c of buildingColliders) {
+          if (Math.abs(px - c.x) < (w/2 + c.w/2 + 2) && Math.abs(pz - c.z) < (d/2 + c.d/2 + 2)) {
+            overlap = true;
+            break;
+          }
+        }
+        if (overlap) continue;
+
+        const b = createAdvancedBuilding(px, pz, w, d, h, idx + a);
+        buildingsGroup.add(b);
+        buildingColliders.push({ x: px, z: pz, w, d, h });
+      }
+    });
+
+    // ---------- 中央地标广场重构 ----------
+    function buildCentralPlaza() {
+      const plazaGroup = new THREE.Group();
+      // 广场底座
+      const plazaFloor = new THREE.Mesh(new THREE.BoxGeometry(38, 0.2, 38), new THREE.MeshStandardMaterial({ color: 0x1f2435, roughness: 0.4 }));
+      plazaFloor.position.y = 0.1;
+      plazaFloor.receiveShadow = true;
+      plazaGroup.add(plazaFloor);
+
+      // 科技方尖碑核心地标
+      const spireMat = new THREE.MeshStandardMaterial({ color: 0x0f111a, metalness: 0.9, roughness: 0.1 });
+      const spire = new THREE.Mesh(new THREE.CylinderGeometry(1, 3, 45, 4), spireMat);
+      spire.position.y = 22.5;
+      spire.castShadow = true;
+      plazaGroup.add(spire);
+
+      // 方尖碑发光束
+      const beamMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffcc, emissiveIntensity: 2.0, transparent: true, opacity: 0.6 });
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.4, 45, 0.4), beamMat);
+      beam.position.y = 22.5;
+      plazaGroup.add(beam);
+
+      // 环形未来植被带模拟
+      const bushMat = new THREE.MeshStandardMaterial({ color: 0x00aa77, roughness: 0.9, flatShading: true });
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+        const bx = Math.cos(angle) * 14;
+        const bz = Math.sin(angle) * 14;
+        const bush = new THREE.Mesh(new THREE.SphereGeometry(2, 5, 4), bushMat);
+        bush.position.set(bx, 1, bz);
+        bush.scale.set(1.5, 0.8, 1);
+        bush.castShadow = true;
+        plazaGroup.add(bush);
+      }
+
+      plazaGroup.position.set(0, 0, 0);
+      scene.add(plazaGroup);
+      buildingColliders.push({ x: 0, z: 0, w: 35, d: 35, h: 45 }); // 加入漫步碰撞判定
+    }
+    buildCentralPlaza();
+
+    // ---------- 智能车辆光轨系统 ----------
+    const vehiclesGroup = new THREE.Group();
+    scene.add(vehiclesGroup);
+    const vehicles = [];
+    const carColors = [0x00ffcc, 0xff0055, 0xffbb00, 0xffffff, 0x3344ff];
+
+    function createCyberCar(colorHex) {
+      const car = new THREE.Group();
+      
+      // 车身
+      const mainMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.8, roughness: 0.2 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 3.2), mainMat);
+      body.position.y = 0.4;
+      body.castShadow = true;
+      car.add(body);
+
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.4, 1.5), new THREE.MeshStandardMaterial({ color: 0x111, roughness: 0.1 }));
+      glass.position.set(0, 0.75, -0.2);
+      car.add(glass);
+
+      // 前大灯 (白光)
+      const headLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const hl1 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 4, 4), headLightMat); hl1.position.set(-0.6, 0.4, 1.6); car.add(hl1);
+      const hl2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 4, 4), headLightMat); hl2.position.set(0.6, 0.4, 1.6); car.add(hl2);
+
+      // 后尾灯 (红光)
+      const tailLightMat = new THREE.MeshStandardMaterial({ color: 0xff0033, emissive: 0xff0033, emissiveIntensity: 2.0 });
+      const tl1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.1), tailLightMat); tl1.position.set(-0.5, 0.4, -1.6); car.add(tl1);
+      const tl2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.1), tailLightMat); tl2.position.set(0.5, 0.4, -1.6); car.add(tl2);
+
+      return { mesh: car, hl1, hl2 };
+    }
+
+    vehiclePaths.forEach(path => {
+      const density = 3 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < density; i++) {
+        const carData = createCyberCar(carColors[Math.floor(Math.random() * carColors.length)]);
+        const t = Math.random();
+        carData.mesh.position.copy(new THREE.Vector3().lerpVectors(path.start, path.end, t));
+        carData.mesh.rotation.y = Math.atan2(path.dir.x, path.dir.z);
+        vehiclesGroup.add(carData.mesh);
+        vehicles.push({ 
+          mesh: carData.mesh, 
+          hl1: carData.hl1,
+          hl2: carData.hl2,
+          path, 
+          progress: t, 
+          speed: 0.02 + Math.random() * 0.03 
+        });
+      }
+    });
+
+    // ---------- 日夜变换环境控制引擎 ----------
+    let timeOfDay = 16.0; // 从傍晚 golden hour 开始展示
+    const timeSpeed = 0.04; 
+
+    function updateEnvironment(dt) {
+      timeOfDay += dt * timeSpeed;
+      if (timeOfDay > 24) timeOfDay -= 24;
+
+      const angle = (timeOfDay / 24) * Math.PI * 2;
+      
+      // 计算太阳高度决定天空色彩状态
+      const sunHeight = Math.sin(angle - Math.PI/2); // -1 到 1
+      const dayFactor = Math.max(0, Math.min(1, (sunHeight + 0.3) * 2)); // 渐变权重
+      
+      // 天空颜色转换逻辑：深邃夜蓝 -> 温暖橙暮 -> 清澈昼蓝
+      let skyColor, fogColor;
+      if (timeOfDay >= 16 && timeOfDay < 19) { // 傍晚黄昏
+        const t = (timeOfDay - 16) / 3;
+        skyColor = new THREE.Color(0xfd5e53).lerp(new THREE.Color(0x13132a), t);
+        fogColor = skyColor;
+      } else if (timeOfDay >= 19 || timeOfDay < 5) { // 深夜
+        skyColor = new THREE.Color(0x04040e);
+        fogColor = skyColor;
+      } else { // 白天
+        const t = (timeOfDay - 5) / 11;
+        skyColor = new THREE.Color(0x0c0d1c).lerp(new THREE.Color(0x6fa8dc), t);
+        fogColor = skyColor;
+      }
+
+      scene.background = skyColor;
+      scene.fog.color = fogColor;
+
+      // 调整主光源和环境光强弱
+      sunLight.position.set(Math.cos(angle)*150, Math.max(10, Math.sin(angle)*150), Math.sin(angle)*100);
+      sunLight.intensity = dayFactor * 4.0;
+      ambientLight.intensity = 0.2 + dayFactor * 0.6;
+      moonLight.intensity = (1 - dayFactor) * 1.5;
+
+      // 窗户与霓虹灯夜间发光激活
+      const nightFactor = 1 - dayFactor;
+      windowMaterials.forEach(m => {
+        m.emissiveIntensity = 0.1 + nightFactor * 1.4;
+      });
+      neonMaterials.forEach(m => {
+        m.emissiveIntensity = 0.4 + nightFactor * 1.6;
+      });
+
+      // 动态车灯前照灯亮度更新
+      vehicles.forEach(v => {
+        const intensity = 0.2 + nightFactor * 1.5;
+        v.hl1.material.color.setHex(timeOfDay > 18 || timeOfDay < 6 ? 0xffffff : 0xaaaaaa);
+      });
+
+      // UI数据刷新
+      const hh = Math.floor(timeOfDay).toString().padStart(2, '0');
+      const mm = Math.floor((timeOfDay % 1) * 60).toString().padStart(2, '0');
+      document.getElementById('time-display').textContent = `${hh}:${mm}`;
+      
+      const icon = document.getElementById('time-icon');
+      if(timeOfDay >= 6 && timeOfDay < 16) icon.textContent = '🌞';
+      else if(timeOfDay >= 16 && timeOfDay < 19) icon.textContent = '🌅';
+      else if(timeOfDay >= 19 && timeOfDay < 21) icon.textContent = '🌆';
+      else icon.textContent = '🌙';
+    }
+
+    // ---------- 完全修复版：全自由高级相机控制器 ----------
+    let cameraMode = 'bird'; // 'bird' 或 'walk'
+    const keys = {};
+
+    // 鸟瞰模式物理量
+    let birdTheta = 0.7, birdPhi = 1.0, birdRadius = 140;
+    const birdTarget = new THREE.Vector3(0, 0, 0);
+
+    // 漫步状态量
+    const walkState = {
+      pos: new THREE.Vector3(20, 1.6, 20),
+      yaw: 0,
+      pitch: 0,
+      speed: 25
+    };
+
+    // 事件绑定
+    window.addEventListener('keydown', e => {
+      keys[e.key.toLowerCase()] = true;
+      if (e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        cameraMode = cameraMode === 'bird' ? 'walk' : 'bird';
+        document.getElementById('mode-indicator').textContent = cameraMode === 'bird' ? '🚁 智能鸟瞰控制中' : '🚶 沉浸漫步系统激活';
+        if (cameraMode === 'walk') {
+          renderer.domElement.requestPointerLock();
+        } else {
+          document.exitPointerLock();
+        }
+      }
+    });
+    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+    // 鼠标拖拽平滑控制（修复原版缺陷）
+    let isMouseDown = false;
+    let prevMouseX = 0, prevMouseY = 0;
+
+    renderer.domElement.addEventListener('mousedown', e => {
+      if (cameraMode === 'bird') {
+        isMouseDown = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      }
+    });
+
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    window.addEventListener('mousemove', e => {
+      if (cameraMode === 'bird' && isMouseDown) {
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        birdTheta -= deltaX * 0.006;
+        birdPhi -= deltaY * 0.006;
+        birdPhi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, birdPhi)); // 防止穿地
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      } else if (cameraMode === 'walk' && document.pointerLockElement === renderer.domElement) {
+        walkState.yaw -= e.movementX * 0.0025;
+        walkState.pitch -= e.movementY * 0.0025;
+        walkState.pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, walkState.pitch));
+      }
+    });
+
+    renderer.domElement.addEventListener('wheel', e => {
+      if (cameraMode === 'bird') {
+        birdRadius += e.deltaY * 0.05;
+        birdRadius = Math.max(30, Math.min(300, birdRadius));
+      }
+    });
+
+    function updateCameraDynamics(dt) {
+      if (cameraMode === 'bird') {
+        // 鸟瞰键盘辅助平移
+        const panSpeed = 60 * dt;
+        const fwd = new THREE.Vector3(Math.sin(birdTheta), 0, Math.cos(birdTheta));
+        const rt = new THREE.Vector3(Math.cos(birdTheta), 0, -Math.sin(birdTheta));
+        
+        if (keys['w'] || keys['arrowup']) birdTarget.addScaledVector(fwd, -panSpeed);
+        if (keys['s'] || keys['arrowdown']) birdTarget.addScaledVector(fwd, panSpeed);
+        if (keys['a'] || keys['arrowleft']) birdTarget.addScaledVector(rt, -panSpeed);
+        if (keys['d'] || keys['arrowright']) birdTarget.addScaledVector(rt, panSpeed);
+
+        // 边界限制
+        birdTarget.x = Math.max(-180, Math.min(180, birdTarget.x));
+        birdTarget.z = Math.max(-180, Math.min(180, birdTarget.z));
+
+        // 球面坐标系转换相机物理坐标
+        camera.position.x = birdTarget.x + birdRadius * Math.sin(birdTheta) * Math.cos(birdPhi);
+        camera.position.y = birdTarget.y + birdRadius * Math.sin(birdPhi);
+        camera.position.z = birdTarget.z + birdRadius * Math.cos(birdTheta) * Math.cos(birdPhi);
+        camera.lookAt(birdTarget);
+      } else {
+        // 漫步 FPS 动力学与碰撞检测
+        const moveDir = new THREE.Vector3();
+        const fwd = new THREE.Vector3(Math.sin(walkState.yaw), 0, Math.cos(walkState.yaw));
+        const rt = new THREE.Vector3(Math.cos(walkState.yaw), 0, -Math.sin(walkState.yaw));
+
+        if (keys['w']) moveDir.add(fwd);
+        if (keys['s']) moveDir.addScaledVector(fwd, -1);
+        if (keys['a']) moveDir.addScaledVector(rt, -1);
+        if (keys['d']) moveDir.add(rt);
+
+        if (moveDir.lengthSq() > 0) {
+          moveDir.normalize();
+          const nextPos = walkState.pos.clone().addScaledVector(moveDir, walkState.speed * dt);
+          
+          // AABB简易建筑碰撞盒子判定
+          let hit = false;
+          for (const c of buildingColliders) {
+            if (Math.abs(nextPos.x - c.x) < (c.w / 2 + 0.8) && Math.abs(nextPos.z - c.z) < (c.d / 2 + 0.8)) {
+              hit = true; break;
+            }
+          }
+          // 边界碰撞
+          if(Math.abs(nextPos.x) > 240 || Math.abs(nextPos.z) > 240) hit = true;
+
+          if (!hit) walkState.pos.copy(nextPos);
+        }
+
+        camera.position.copy(walkState.pos);
+        const lookTarget = new THREE.Vector3(
+          Math.sin(walkState.yaw) * Math.cos(walkState.pitch),
+          Math.sin(walkState.pitch),
+          Math.cos(walkState.yaw) * Math.cos(walkState.pitch)
+        ).add(camera.position);
+        camera.lookAt(lookTarget);
+      }
+    }
+
+    // ---------- 主渲染核心循环 ----------
+    let lastTime = performance.now();
+    
+    function animate(now) {
+      requestAnimationFrame(animate);
+      let dt = (now - lastTime) / 1000;
+      if (dt <= 0 || dt > 0.1) dt = 0.016; // 锁帧与防切后台弹跳
+      lastTime = now;
+
+      // 1. 场景环境变化更新
+      updateEnvironment(dt);
+
+      // 2. 车辆移动流光动态
+      vehicles.forEach(v => {
+        v.progress += v.speed * dt;
+        if (v.progress > 1) v.progress -= 1;
+        v.mesh.position.copy(new THREE.Vector3().lerpVectors(v.path.start, v.path.end, v.progress));
+      });
+
+      // 3. 顶层航空警告灯规律闪烁特效
+      const beaconIntensity = (Math.sin(now * 0.006) + 1) / 2;
+      beaconMeshes.forEach(b => {
+        b.material.opacity = beaconIntensity > 0.4 ? 1.0 : 0.1;
+        b.material.transparent = true;
+      });
+
+      // 4. 相机与物理驱动
+      updateCameraDynamics(dt);
+
+      renderer.render(scene, camera);
+    }
+
+    // 自适应视口
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 引擎全面启动
+    animate(performance.now());
+    console.log('⚡ NEXUS CITY 智能数字重构引擎加载完毕。Enjoy the Cyber view!');
+  </script>
+</body>
+</html>

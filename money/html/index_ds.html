@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 交互式 $100 美元纸币</title>
+    <style>
+        :root {
+            --bg: #f5f0e8;
+            --ui-bg: rgba(255, 255, 255, 0.75);
+            --text: #5a5248;
+            --accent: #8b7355;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: var(--bg);
+            overflow: hidden;
+            font-family: 'Inter', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
+            height: 100vh;
+            width: 100vw;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-toolbar {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            gap: 14px;
+            padding: 12px 22px;
+            background: var(--ui-bg);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            border-radius: 40px;
+            box-shadow: 0 4px 28px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        #ui-toolbar button {
+            padding: 10px 22px;
+            border: 1.5px solid rgba(139, 115, 85, 0.3);
+            border-radius: 28px;
+            background: rgba(255, 255, 255, 0.55);
+            color: #4a3f35;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+            font-family: inherit;
+            outline: none;
+        }
+        #ui-toolbar button:hover {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(139, 115, 85, 0.6);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+        }
+        #ui-toolbar button:active {
+            transform: scale(0.96);
+            transition: transform 0.08s ease;
+        }
+        #btn-wind.active {
+            background: #e8f0ff;
+            border-color: #5b8cc9;
+            color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(91, 140, 201, 0.15);
+        }
+        #hint-text {
+            position: fixed;
+            top: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            color: #b5ada4;
+            font-size: 13px;
+            letter-spacing: 0.4px;
+            font-weight: 400;
+            pointer-events: none;
+            text-align: center;
+            line-height: 1.5;
+        }
+        @media (max-width: 640px) {
+            #ui-toolbar {
+                gap: 8px;
+                padding: 10px 15px;
+                border-radius: 32px;
+                bottom: 18px;
+            }
+            #ui-toolbar button {
+                padding: 8px 15px;
+                font-size: 12px;
+                border-radius: 22px;
+            }
+            #hint-text {
+                font-size: 11px;
+                top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="hint-text">🖱️ 拖拽纸币 &nbsp;·&nbsp; 方向键/WASD 旋转视角 &nbsp;·&nbsp; 滚轮缩放</div>
+    <div id="ui-toolbar">
+        <button id="btn-wind" title="切换吹风效果">💨 吹风</button>
+        <button id="btn-reset" title="重置纸币位置">🔄 重置</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://esm.sh/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+        // ─────────────────────────────────────
+        // DOM元素
+        // ─────────────────────────────────────
+        const container = document.getElementById('canvas-container');
+        const btnWind = document.getElementById('btn-wind');
+        const btnReset = document.getElementById('btn-reset');
+
+        // ─────────────────────────────────────
+        // 场景初始化
+        // ─────────────────────────────────────
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.05;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#f2ede4');
+        scene.fog = new THREE.Fog('#f2ede4', 3, 18);
+
+        const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.15, 30);
+        // 球坐标
+        let cameraTheta = Math.PI * 0.28;
+        let cameraPhi = Math.PI * 0.32;
+        let cameraRadius = 3.6;
+        const cameraTarget = new THREE.Vector3(0, 0.08, 0);
+        const minPhi = 0.08;
+        const maxPhi = Math.PI * 0.46;
+        const minRadius = 1.5;
+        const maxRadius = 9.0;
+
+        function updateCameraPosition() {
+            const sp = Math.sin(cameraPhi);
+            const cp = Math.cos(cameraPhi);
+            const st = Math.sin(cameraTheta);
+            const ct = Math.cos(cameraTheta);
+            camera.position.set(
+                cameraTarget.x + cameraRadius * sp * ct,
+                cameraTarget.y + cameraRadius * cp,
+                cameraTarget.z + cameraRadius * sp * st
+            );
+            camera.lookAt(cameraTarget);
+        }
+        updateCameraPosition();
+
+        // ─────────────────────────────────────
+        // 光照
+        // ─────────────────────────────────────
+        const ambientLight = new THREE.AmbientLight('#fdf5e6', 2.2);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight('#fff8ed', 6.5);
+        keyLight.position.set(4, 7, 3);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.camera.near = 0.3;
+        keyLight.shadow.camera.far = 25;
+        keyLight.shadow.camera.left = -5;
+        keyLight.shadow.camera.right = 5;
+        keyLight.shadow.camera.top = 5;
+        keyLight.shadow.camera.bottom = -5;
+        keyLight.shadow.bias = -0.00015;
+        keyLight.shadow.normalBias = 0.02;
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight('#d4e0f0', 2.0);
+        fillLight.position.set(-3, 2.5, -1.5);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight('#ffffff', 3.5);
+        rimLight.position.set(0, 1.5, -4);
+        scene.add(rimLight);
+
+        const hemiLight = new THREE.HemisphereLight('#fffaf0', '#d8cfc0', 1.8);
+        scene.add(hemiLight);
+
+        // ─────────────────────────────────────
+        // 地面
+        // ─────────────────────────────────────
+        const groundGeo = new THREE.PlaneGeometry(14, 14);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: '#faf7f0',
+            roughness: 0.85,
+            metalness: 0.0,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.015;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // ─────────────────────────────────────
+        // 后处理
+        // ─────────────────────────────────────
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        // 微量Bloom
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            0.28, 0.4, 0.6
+        );
+        bloomPass.threshold = 0.55;
+        bloomPass.strength = 0.35;
+        bloomPass.radius = 0.7;
+        composer.addPass(bloomPass);
+
+        // 色差+暗角自定义shader
+        const ChromaticVignetteShader = {
+            uniforms: {
+                tDiffuse: { value: null },
+                uTime: { value: 0 },
+                uVignetteStrength: { value: 0.38 },
+                uChromaStrength: { value: 0.35 },
+            },
+            vertexShader: /* glsl */ `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: /* glsl */ `
+                varying vec2 vUv;
+                uniform sampler2D tDiffuse;
+                uniform float uVignetteStrength;
+                uniform float uChromaStrength;
+                void main() {
+                    vec2 uv = vUv;
+                    // 色差
+                    float chromaOffset = uChromaStrength * 0.0012;
+                    float r = texture2D(tDiffuse, uv + vec2(chromaOffset, 0.0)).r;
+                    float g = texture2D(tDiffuse, uv).g;
+                    float b = texture2D(tDiffuse, uv - vec2(chromaOffset, 0.0)).b;
+                    vec3 color = vec3(r, g, b);
+                    // 暗角
+                    float dist = length(uv - 0.5) * 1.35;
+                    float vignette = 1.0 - dist * uVignetteStrength;
+                    vignette = smoothstep(0.0, 1.0, vignette);
+                    color *= vignette;
+                    gl_FragColor = vec4(color, 1.0);
+                }
+            `,
+        };
+        const chromaVignettePass = new ShaderPass(ChromaticVignetteShader);
+        chromaVignettePass.renderToScreen = false;
+        composer.addPass(chromaVignettePass);
+
+        const outputPass = new OutputPass();
+        composer.addPass(outputPass);
+
+        // ─────────────────────────────────────
+        // 纹理生成 - Canvas 2D
+        // ─────────────────────────────────────
+        const TEX_W = 2048;
+        const TEX_H = Math.round(TEX_W / 2.35);
+        const SCALE = 2.5;
+
+        function createPaperTexture(isFront) {
+            const canvas = document.createElement('canvas');
+            canvas.width = TEX_W;
+            canvas.height = TEX_H;
+            const ctx = canvas.getContext('2d');
+
+            const w = TEX_W;
+            const h = TEX_H;
+            const s = SCALE;
+
+            // 纸张底色
+            const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.05, w * 0.5, h * 0.5, w * 0.75);
+            bgGrad.addColorStop(0, '#f5f0e3');
+            bgGrad.addColorStop(0.5, '#f0ead8');
+            bgGrad.addColorStop(1, '#e8e0ca');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // 纸张纹理噪点
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * 14;
+                data[i] += noise;
+                data[i + 1] += noise;
+                data[i + 2] += noise;
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // 红蓝纤维
+            for (let i = 0; i < 280; i++) {
+                const fx = Math.random() * w;
+                const fy = Math.random() * h;
+                const fl = 8 + Math.random() * 45;
+                const angle = Math.random() * Math.PI;
+                const isRed = Math.random() < 0.45;
+                ctx.strokeStyle = isRed ?
+                    `rgba(${180+Math.random()*75},${20+Math.random()*40},${15+Math.random()*30},${0.3+Math.random()*0.4})` :
+                    `rgba(${20+Math.random()*30},${40+Math.random()*50},${170+Math.random()*85},${0.3+Math.random()*0.4})`;
+                ctx.lineWidth = 1.2 + Math.random() * 2.5;
+                ctx.beginPath();
+                ctx.moveTo(fx, fy);
+                ctx.lineTo(fx + Math.cos(angle) * fl, fy + Math.sin(angle) * fl);
+                ctx.stroke();
+            }
+
+            // 装饰边框
+            const inkColor = '#0d2b06';
+            const inkColorLight = '#1a3d10';
+            const margin = w * 0.04;
+            const innerMargin = w * 0.055;
+
+            function drawOrnateBorder(x1, y1, x2, y2, thickness, color) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = thickness;
+                ctx.lineJoin = 'round';
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                // 角落装饰
+                const cornerSize = (x2 - x1) * 0.06;
+                const corners = [
+                    { x: x1, y: y1, dx: 1, dy: 1 },
+                    { x: x2, y: y1, dx: -1, dy: 1 },
+                    { x: x1, y: y2, dx: 1, dy: -1 },
+                    { x: x2, y: y2, dx: -1, dy: -1 },
+                ];
+                corners.forEach(c => {
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    const cx = c.x + c.dx * cornerSize * 0.5;
+                    const cy = c.y + c.dy * cornerSize * 0.5;
+                    // 花饰圆点
+                    for (let r = 0; r < 3; r++) {
+                        const rr = cornerSize * (0.35 - r * 0.08);
+                        ctx.moveTo(cx + c.dx * rr * 0.7, cy + c.dy * rr * 0.7);
+                        ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+                    }
+                    ctx.fill();
+                    // 藤蔓状延伸
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = thickness * 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.quadraticCurveTo(cx + c.dx * cornerSize * 1.3, cy, cx + c.dx * cornerSize * 1.6, cy - c.dy * cornerSize * 0.4);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.quadraticCurveTo(cx, cy + c.dy * cornerSize * 1.3, cx - c.dx * cornerSize * 0.4, cy + c.dy * cornerSize * 1.6);
+                    ctx.stroke();
+                });
+            }
+
+            // 多层边框
+            drawOrnateBorder(margin, margin, w - margin, h - margin, s * 1.8, inkColor);
+            drawOrnateBorder(margin + s * 3, margin + s * 3, w - margin - s * 3, h - margin - s * 3, s * 0.7, inkColorLight);
+            drawOrnateBorder(innerMargin, innerMargin, w - innerMargin, h - innerMargin, s * 1.1, inkColor);
+
+            // 扭索纹背景（细密曲线）
+            ctx.strokeStyle = 'rgba(13,43,6,0.08)';
+            ctx.lineWidth = 0.6;
+            for (let gy = innerMargin; gy < h - innerMargin; gy += s * 1.8) {
+                ctx.beginPath();
+                for (let gx = innerMargin; gx < w - innerMargin; gx += 3) {
+                    const gyOff = gy + Math.sin(gx * 0.02) * s * 1.5 + Math.cos(gx * 0.035 + gy * 0.01) * s * 1.2;
+                    if (gx === innerMargin) ctx.moveTo(gx, gyOff);
+                    else ctx.lineTo(gx, gyOff);
+                }
+                ctx.stroke();
+            }
+
+            if (isFront) {
+                // ──────── 正面 ────────
+                // 中央椭圆画框 - 猫咪头像
+                const cx = w / 2;
+                const cy = h * 0.46;
+                const ovalRx = w * 0.165;
+                const ovalRy = h * 0.28;
+
+                // 椭圆背景交叉阴影
+                ctx.save();
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, ovalRx, ovalRy, 0, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.fillStyle = '#e8e2d2';
+                ctx.fillRect(cx - ovalRx, cy - ovalRy, ovalRx * 2, ovalRy * 2);
+                // 交叉阴影线
+                ctx.strokeStyle = 'rgba(13,43,6,0.12)';
+                ctx.lineWidth = 0.9;
+                for (let lx = cx - ovalRx; lx < cx + ovalRx; lx += s * 2.2) {
+                    ctx.beginPath();
+                    ctx.moveTo(lx, cy - ovalRy);
+                    ctx.lineTo(lx + ovalRy * 0.7, cy + ovalRy);
+                    ctx.stroke();
+                }
+                for (let lx = cx - ovalRx; lx < cx + ovalRx; lx += s * 2.2) {
+                    ctx.beginPath();
+                    ctx.moveTo(lx, cy + ovalRy);
+                    ctx.lineTo(lx - ovalRy * 0.7, cy - ovalRy);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // 椭圆边框
+                ctx.strokeStyle = inkColor;
+                ctx.lineWidth = s * 2.2;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, ovalRx, ovalRy, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = inkColorLight;
+                ctx.lineWidth = s * 0.8;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, ovalRx + s * 1.5, ovalRy + s * 1.5, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, ovalRx - s * 2, ovalRy - s * 2, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 猫咪头像
+                const catCx = cx;
+                const catCy = cy - ovalRy * 0.06;
+                const catScale = ovalRx * 0.58;
+
+                function drawCat() {
+                    ctx.save();
+                    ctx.translate(catCx, catCy);
+                    ctx.scale(catScale / 100, catScale / 100);
+
+                    // 头部（圆润）
+                    const headGrad = ctx.createRadialGradient(-10, -15, 5, 0, 0, 95);
+                    headGrad.addColorStop(0, '#fefefe');
+                    headGrad.addColorStop(0.45, '#f5f0e8');
+                    headGrad.addColorStop(0.8, '#e8dcc8');
+                    headGrad.addColorStop(1, '#d4c4a8');
+                    ctx.fillStyle = headGrad;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 78, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#3a2a15';
+                    ctx.lineWidth = 3.5;
+                    ctx.stroke();
+
+                    // 耳朵
+                    function drawEar(ex, ey, angle) {
+                        ctx.save();
+                        ctx.translate(ex, ey);
+                        ctx.rotate(angle);
+                        const earGrad = ctx.createLinearGradient(0, -55, 0, 5);
+                        earGrad.addColorStop(0, '#f5f0e8');
+                        earGrad.addColorStop(0.6, '#e8dcc8');
+                        earGrad.addColorStop(1, '#d4c4a8');
+                        ctx.fillStyle = earGrad;
+                        ctx.beginPath();
+                        ctx.moveTo(0, -55);
+                        ctx.bezierCurveTo(30, -50, 38, -10, 5, 8);
+                        ctx.bezierCurveTo(-10, -5, -25, -30, 0, -55);
+                        ctx.fill();
+                        ctx.strokeStyle = '#3a2a15';
+                        ctx.lineWidth = 2.8;
+                        ctx.stroke();
+                        // 内耳粉色
+                        ctx.fillStyle = '#f4c4c4';
+                        ctx.beginPath();
+                        ctx.moveTo(0, -38);
+                        ctx.bezierCurveTo(18, -35, 22, -5, 4, 5);
+                        ctx.bezierCurveTo(-4, -1, -12, -18, 0, -38);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                    drawEar(-35, -52, -0.3);
+                    drawEar(35, -52, 0.3);
+
+                    // 眼睛
+                    function drawEye(ex, ey) {
+                        // 眼白
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.ellipse(ex, ey, 22, 26, 0.05, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#2a1a0a';
+                        ctx.lineWidth = 2.5;
+                        ctx.stroke();
+                        // 虹膜
+                        const irisGrad = ctx.createRadialGradient(ex + 3, ey - 4, 3, ex, ey, 18);
+                        irisGrad.addColorStop(0, '#5a8a3c');
+                        irisGrad.addColorStop(0.5, '#3d6b28');
+                        irisGrad.addColorStop(1, '#1a3d0e');
+                        ctx.fillStyle = irisGrad;
+                        ctx.beginPath();
+                        ctx.arc(ex + 2, ey - 2, 15, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 瞳孔
+                        ctx.fillStyle = '#0a0a0a';
+                        ctx.beginPath();
+                        ctx.arc(ex + 2, ey - 2, 7, 0, Math.PI * 2);
+                        ctx.fill();
+                        // 高光
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(ex + 6, ey - 12, 5.5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(ex - 3, ey - 6, 2.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    drawEye(-24, -10);
+                    drawEye(24, -10);
+
+                    // 鼻子
+                    ctx.fillStyle = '#e8a0a0';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 16);
+                    ctx.bezierCurveTo(-10, 12, -14, 24, 0, 28);
+                    ctx.bezierCurveTo(14, 24, 10, 12, 0, 16);
+                    ctx.fill();
+                    ctx.strokeStyle = '#5a3a2a';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // 嘴巴
+                    ctx.strokeStyle = '#4a3020';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 28);
+                    ctx.quadraticCurveTo(-8, 38, -20, 32);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, 28);
+                    ctx.quadraticCurveTo(8, 38, 20, 32);
+                    ctx.stroke();
+
+                    // 胡须
+                    ctx.strokeStyle = '#5a4a38';
+                    ctx.lineWidth = 1.2;
+                    const whiskerAngles = [-0.5, -0.25, 0, 0.25, 0.5];
+                    for (const side of [-1, 1]) {
+                        for (const wa of whiskerAngles) {
+                            const sx = side * 22;
+                            const sy = 10 + wa * 15;
+                            ctx.beginPath();
+                            ctx.moveTo(sx, sy);
+                            ctx.quadraticCurveTo(side * 60, sy + wa * 20, side * 85, sy + wa * 35);
+                            ctx.stroke();
+                        }
+                    }
+
+                    // 腮红
+                    for (const side of [-1, 1]) {
+                        const rx = side * 38;
+                        const ry = 18;
+                        const blushGrad = ctx.createRadialGradient(rx, ry, 2, rx, ry, 20);
+                        blushGrad.addColorStop(0, 'rgba(255,180,170,0.55)');
+                        blushGrad.addColorStop(1, 'rgba(255,180,170,0)');
+                        ctx.fillStyle = blushGrad;
+                        ctx.beginPath();
+                        ctx.arc(rx, ry, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+                drawCat();
+
+                // 印章 - 联邦储备印章（左侧）
+                function drawSeal(sx, sy, sr, letter) {
+                    // 锯齿外环
+                    const teeth = 48;
+                    const outerR = sr;
+                    const innerR = sr * 0.82;
+                    ctx.fillStyle = inkColor;
+                    ctx.beginPath();
+                    for (let i = 0; i < teeth; i++) {
+                        const a = (i / teeth) * Math.PI * 2;
+                        const a2 = ((i + 0.5) / teeth) * Math.PI * 2;
+                        const r = i % 2 === 0 ? outerR : innerR;
+                        if (i === 0) ctx.moveTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r);
+                        else ctx.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // 内环
+                    ctx.fillStyle = '#f5f0e3';
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, innerR - s * 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = inkColor;
+                    ctx.lineWidth = s * 1.3;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, innerR - s * 1.2, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // 文字环
+                    ctx.fillStyle = inkColor;
+                    ctx.font = `bold ${s*4.5}px 'Georgia', 'Times New Roman', serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    const textR = innerR - s * 5;
+                    const textStr = 'FEDERAL RESERVE SEAL · 1913 ·';
+                    for (let i = 0; i < textStr.length; i++) {
+                        const a = -Math.PI / 2 + (i / textStr.length) * Math.PI * 2;
+                        const tx = sx + Math.cos(a) * textR;
+                        const ty = sy + Math.sin(a) * textR;
+                        ctx.save();
+                        ctx.translate(tx, ty);
+                        ctx.rotate(a + Math.PI / 2);
+                        ctx.fillText(textStr[i], 0, 0);
+                        ctx.restore();
+                    }
+
+                    // 中心字母
+                    ctx.fillStyle = inkColor;
+                    ctx.font = `bold ${s*12}px 'Georgia', 'Times New Roman', serif`;
+                    ctx.fillText(letter, sx, sy);
+                }
+                drawSeal(w * 0.22, h * 0.62, s * 16, 'B');
+                drawSeal(w * 0.78, h * 0.62, s * 16, 'T');
+
+                // 文字
+                ctx.fillStyle = inkColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                ctx.font = `bold ${s*7.5}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('FEDERAL RESERVE NOTE', w / 2, h * 0.08);
+
+                ctx.font = `bold ${s*7}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('THE UNITED STATES OF AMERICA', w / 2, h * 0.84);
+
+                ctx.font = `bold ${s*20}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('100', w * 0.14, h * 0.23);
+
+                ctx.font = `bold ${s*6}px 'Georgia', serif`;
+                ctx.fillText('ONE HUNDRED DOLLARS', w * 0.14, h * 0.32);
+
+                ctx.font = `bold ${s*20}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('100', w * 0.86, h * 0.23);
+
+                // 序列号
+                ctx.font = `${s*4.2}px 'Courier New', monospace`;
+                ctx.fillStyle = '#1a4a0e';
+                ctx.fillText('MB 77335914 A', w * 0.3, h * 0.90);
+                ctx.fillText('MB 77335914 A', w * 0.7, h * 0.90);
+
+                // 安全线
+                ctx.strokeStyle = 'rgba(13,43,6,0.25)';
+                ctx.lineWidth = s * 0.8;
+                ctx.setLineDash([s * 4, s * 2]);
+                ctx.beginPath();
+                ctx.moveTo(w * 0.35, h * 0.05);
+                ctx.lineTo(w * 0.35, h * 0.95);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // "THIS NOTE IS LEGAL TENDER..."
+                ctx.font = `${s*2.8}px 'Georgia', serif`;
+                ctx.fillStyle = inkColor;
+                ctx.fillText('THIS NOTE IS LEGAL TENDER FOR ALL DEBTS, PUBLIC AND PRIVATE', w / 2, h * 0.78);
+
+                // 微缩文字
+                ctx.font = `${s*1.8}px 'Courier New', monospace`;
+                ctx.fillStyle = 'rgba(13,43,6,0.5)';
+                for (let my = h * 0.12; my < h * 0.78; my += s * 2.5) {
+                    ctx.fillText('ONEHUNDREDUSA100', w / 2, my);
+                }
+
+            } else {
+                // ──────── 背面 ────────
+                const cx = w / 2;
+                const cy = h * 0.44;
+
+                // 独立厅建筑
+                function drawIndependenceHall() {
+                    const bx = cx;
+                    const by = cy;
+                    const bldgW = w * 0.38;
+                    const bldgH = h * 0.5;
+
+                    ctx.fillStyle = '#e8e2d2';
+                    ctx.fillRect(bx - bldgW / 2, by - bldgH / 2, bldgW, bldgH);
+
+                    // 主体建筑
+                    const mainW = bldgW * 0.75;
+                    const mainH = bldgH * 0.7;
+                    const mainX = bx - mainW / 2;
+                    const mainY = by + bldgH * 0.15 - mainH;
+
+                    ctx.fillStyle = '#f0ebe0';
+                    ctx.strokeStyle = inkColor;
+                    ctx.lineWidth = s * 1.5;
+                    ctx.fillRect(mainX, mainY, mainW, mainH);
+                    ctx.strokeRect(mainX, mainY, mainW, mainH);
+
+                    // 塔楼
+                    const towerW = mainW * 0.35;
+                    const towerH = mainH * 0.85;
+                    const towerX = bx - towerW / 2;
+                    const towerY = mainY - towerH;
+                    ctx.fillStyle = '#f5f0e6';
+                    ctx.fillRect(towerX, towerY, towerW, towerH);
+                    ctx.strokeRect(towerX, towerY, towerW, towerH);
+
+                    // 尖顶
+                    const spireH = towerH * 0.55;
+                    ctx.fillStyle = '#e8e0d0';
+                    ctx.beginPath();
+                    ctx.moveTo(towerX, towerY);
+                    ctx.lineTo(bx, towerY - spireH);
+                    ctx.lineTo(towerX + towerW, towerY);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // 钟表
+                    const clockR = towerW * 0.28;
+                    const clockX = bx;
+                    const clockY = towerY + towerH * 0.38;
+                    ctx.fillStyle = '#fafaf8';
+                    ctx.beginPath();
+                    ctx.arc(clockX, clockY, clockR, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = inkColor;
+                    ctx.lineWidth = s * 1.8;
+                    ctx.stroke();
+                    // 表盘刻度
+                    for (let i = 0; i < 12; i++) {
+                        const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
+                        ctx.beginPath();
+                        ctx.moveTo(clockX + Math.cos(a) * clockR * 0.7, clockY + Math.sin(a) * clockR * 0.7);
+                        ctx.lineTo(clockX + Math.cos(a) * clockR * 0.9, clockY + Math.sin(a) * clockR * 0.9);
+                        ctx.strokeStyle = inkColor;
+                        ctx.lineWidth = s * 0.7;
+                        ctx.stroke();
+                    }
+
+                    // 柱子
+                    const colCount = 6;
+                    const colW = mainW / (colCount + 1);
+                    for (let i = 1; i <= colCount; i++) {
+                        const colX = mainX + i * colW;
+                        ctx.fillStyle = '#f8f4ec';
+                        ctx.strokeStyle = inkColor;
+                        ctx.lineWidth = s * 0.8;
+                        ctx.fillRect(colX - colW * 0.3, mainY, colW * 0.6, mainH);
+                        ctx.strokeRect(colX - colW * 0.3, mainY, colW * 0.6, mainH);
+                        // 柱头
+                        ctx.fillRect(colX - colW * 0.38, mainY - s * 2, colW * 0.76, s * 4);
+                        ctx.strokeRect(colX - colW * 0.38, mainY - s * 2, colW * 0.76, s * 4);
+                    }
+
+                    // 窗户
+                    for (let row = 0; row < 3; row++) {
+                        for (let i = 1; i <= colCount; i++) {
+                            const winX = mainX + i * colW;
+                            const winY = mainY + mainH * 0.15 + row * mainH * 0.28;
+                            ctx.fillStyle = '#d8e8f0';
+                            ctx.fillRect(winX - colW * 0.2, winY, colW * 0.4, mainH * 0.18);
+                            ctx.strokeStyle = inkColor;
+                            ctx.lineWidth = s * 0.5;
+                            ctx.strokeRect(winX - colW * 0.2, winY, colW * 0.4, mainH * 0.18);
+                        }
+                    }
+
+                    // 台阶
+                    for (let step = 0; step < 4; step++) {
+                        const sw = mainW * 0.5 + step * s * 3;
+                        const sy = mainY + mainH + step * s * 1.8;
+                        ctx.strokeStyle = inkColor;
+                        ctx.lineWidth = s * 0.6;
+                        ctx.strokeRect(bx - sw / 2, sy, sw, s * 1.8);
+                    }
+
+                    // 门
+                    const doorW = mainW * 0.18;
+                    const doorH = mainH * 0.35;
+                    const doorX = bx - doorW / 2;
+                    const doorY = mainY + mainH - doorH;
+                    ctx.fillStyle = '#3a2a18';
+                    ctx.fillRect(doorX, doorY, doorW, doorH);
+                    ctx.strokeStyle = inkColor;
+                    ctx.lineWidth = s * 1.2;
+                    ctx.strokeRect(doorX, doorY, doorW, doorH);
+                }
+                drawIndependenceHall();
+
+                // 背面文字
+                ctx.fillStyle = inkColor;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = `bold ${s*7.5}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('UNITED STATES OF AMERICA', w / 2, h * 0.07);
+
+                ctx.font = `bold ${s*5.5}px 'Georgia', serif`;
+                ctx.fillText('IN GOD WE TRUST', w / 2, h * 0.16);
+
+                ctx.font = `bold ${s*13}px 'Georgia', 'Times New Roman', serif`;
+                ctx.fillText('ONE HUNDRED DOLLARS', w / 2, h * 0.85);
+
+                ctx.font = `bold ${s*16}px 'Georgia', serif`;
+                ctx.fillText('100', w * 0.14, h * 0.88);
+                ctx.fillText('100', w * 0.86, h * 0.88);
+            }
+
+            return canvas;
+        }
+
+        function createBumpMap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = TEX_W;
+            canvas.height = TEX_H;
+            const ctx = canvas.getContext('2d');
+            const w = TEX_W;
+            const h = TEX_H;
+            const s = SCALE;
+
+            // 中灰底色
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(0, 0, w, h);
+
+            // 随机噪点
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const n = (Math.random() - 0.5) * 35;
+                data[i] = Math.min(255, Math.max(0, 128 + n));
+                data[i + 1] = Math.min(255, Math.max(0, 128 + n));
+                data[i + 2] = Math.min(255, Math.max(0, 128 + n));
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // 短线纹理
+            ctx.strokeStyle = 'rgba(140,140,140,0.3)';
+            ctx.lineWidth = 0.7;
+            for (let i = 0; i < 2000; i++) {
+                const sx = Math.random() * w;
+                const sy = Math.random() * h;
+                const sl = 4 + Math.random() * 18;
+                const sa = Math.random() * Math.PI;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(sx + Math.cos(sa) * sl, sy + Math.sin(sa) * sl);
+                ctx.stroke();
+            }
+
+            // 边框凸起
+            const margin = w * 0.04;
+            ctx.strokeStyle = '#b0b0b0';
+            ctx.lineWidth = s * 4;
+            ctx.strokeRect(margin, margin, w - margin * 2, h - margin * 2);
+
+            const innerMargin = w * 0.055;
+            ctx.strokeStyle = '#a8a8a8';
+            ctx.lineWidth = s * 2.5;
+            ctx.strokeRect(innerMargin, innerMargin, w - innerMargin * 2, h - innerMargin * 2);
+
+            return canvas;
+        }
+
+        // 生成纹理
+        const frontCanvas = createPaperTexture(true);
+        const backCanvas = createPaperTexture(false);
+        const bumpCanvas = createBumpMap();
+
+        const frontTexture = new THREE.CanvasTexture(frontCanvas);
+        frontTexture.colorSpace = THREE.SRGBColorSpace;
+        frontTexture.anisotropy = 16;
+        frontTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        frontTexture.magFilter = THREE.LinearFilter;
+        frontTexture.generateMipmaps = true;
+
+        const backTexture = new THREE.CanvasTexture(backCanvas);
+        backTexture.colorSpace = THREE.SRGBColorSpace;
+        backTexture.anisotropy = 16;
+        backTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        backTexture.magFilter = THREE.LinearFilter;
+        backTexture.generateMipmaps = true;
+
+        const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+        bumpTexture.colorSpace = THREE.LinearSRGBColorSpace;
+        bumpTexture.anisotropy = 16;
+        bumpTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        bumpTexture.magFilter = THREE.LinearFilter;
+        bumpTexture.generateMipmaps = true;
+
+        // ─────────────────────────────────────
+        // 粒子系统 & 布料物理
+        // ─────────────────────────────────────
+        const GRID_X = 44;
+        const GRID_Y = 26;
+        const BILL_W = 2.35;
+        const BILL_H = 1.0;
+        const PARTICLE_COUNT = GRID_X * GRID_Y;
+        const dx = BILL_W / (GRID_X - 1);
+        const dz = BILL_H / (GRID_Y - 1);
+        const GRAVITY = 9.81;
+        const DT = 1 / 60;
+        const CONSTRAINT_ITERS = 14;
+        const MAX_VELOCITY = 0.25;
+        const GROUND_Y = 0.0;
+        const FRICTION = 0.82;
+        const RESTITUTION = 0.05;
+
+        // 粒子数据
+        const posX = new Float32Array(PARTICLE_COUNT);
+        const posY = new Float32Array(PARTICLE_COUNT);
+        const posZ = new Float32Array(PARTICLE_COUNT);
+        const prevX = new Float32Array(PARTICLE_COUNT);
+        const prevY = new Float32Array(PARTICLE_COUNT);
+        const prevZ = new Float32Array(PARTICLE_COUNT);
+        const pinned = new Float32Array(PARTICLE_COUNT); // 0=free, 1=pinned (吹风四角), 2=strong-marked (拖拽)
+        const dragWeight = new Float32Array(PARTICLE_COUNT);
+
+        function particleIndex(ix, iy) { return iy * GRID_X + ix; }
+
+        function initParticles() {
+            const startX = -BILL_W / 2;
+            const startZ = -BILL_H / 2;
+            const initY = 0.004;
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    const idx = particleIndex(ix, iy);
+                    const px = startX + ix * dx;
+                    const pz = startZ + iy * dz;
+                    posX[idx] = px;
+                    posY[idx] = initY;
+                    posZ[idx] = pz;
+                    prevX[idx] = px;
+                    prevY[idx] = initY;
+                    prevZ[idx] = pz;
+                    pinned[idx] = 0;
+                    dragWeight[idx] = 0;
+                }
+            }
+        }
+
+        // 约束类型: 0=结构, 1=剪切, 2=弯曲(跳1-2), 3=长程弯曲(跳3-4)
+        const constraints = [];
+
+        function createConstraints() {
+            constraints.length = 0;
+
+            // 结构约束（水平+垂直相邻）
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X - 1; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 1, iy),
+                        restLen: dx,
+                        stiffness: 0.55,
+                        type: 0
+                    });
+                }
+            }
+            for (let iy = 0; iy < GRID_Y - 1; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix, iy + 1),
+                        restLen: dz,
+                        stiffness: 0.55,
+                        type: 0
+                    });
+                }
+            }
+
+            // 剪切约束（对角线）
+            const diagLen = Math.sqrt(dx * dx + dz * dz);
+            for (let iy = 0; iy < GRID_Y - 1; iy++) {
+                for (let ix = 0; ix < GRID_X - 1; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 1, iy + 1),
+                        restLen: diagLen,
+                        stiffness: 0.35,
+                        type: 1
+                    });
+                    constraints.push({
+                        a: particleIndex(ix + 1, iy),
+                        b: particleIndex(ix, iy + 1),
+                        restLen: diagLen,
+                        stiffness: 0.35,
+                        type: 1
+                    });
+                }
+            }
+
+            // 弯曲约束（跳1-2个粒子）
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X - 2; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 2, iy),
+                        restLen: dx * 2,
+                        stiffness: 0.92,
+                        type: 2
+                    });
+                }
+            }
+            for (let iy = 0; iy < GRID_Y - 2; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix, iy + 2),
+                        restLen: dz * 2,
+                        stiffness: 0.92,
+                        type: 2
+                    });
+                }
+            }
+            // 对角线弯曲（跳1,1）
+            const diag2Len = Math.sqrt((dx * 2) * (dx * 2) + (dz * 2) * (dz * 2));
+            for (let iy = 0; iy < GRID_Y - 2; iy++) {
+                for (let ix = 0; ix < GRID_X - 2; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 2, iy + 2),
+                        restLen: diag2Len,
+                        stiffness: 0.88,
+                        type: 2
+                    });
+                    constraints.push({
+                        a: particleIndex(ix + 2, iy),
+                        b: particleIndex(ix, iy + 2),
+                        restLen: diag2Len,
+                        stiffness: 0.88,
+                        type: 2
+                    });
+                }
+            }
+
+            // 长程弯曲约束（跳3-4个粒子）
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X - 3; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 3, iy),
+                        restLen: dx * 3,
+                        stiffness: 0.96,
+                        type: 3
+                    });
+                }
+            }
+            for (let iy = 0; iy < GRID_Y - 3; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix, iy + 3),
+                        restLen: dz * 3,
+                        stiffness: 0.96,
+                        type: 3
+                    });
+                }
+            }
+            // 跳4
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X - 4; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix + 4, iy),
+                        restLen: dx * 4,
+                        stiffness: 0.98,
+                        type: 3
+                    });
+                }
+            }
+            for (let iy = 0; iy < GRID_Y - 4; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    constraints.push({
+                        a: particleIndex(ix, iy),
+                        b: particleIndex(ix, iy + 4),
+                        restLen: dz * 4,
+                        stiffness: 0.98,
+                        type: 3
+                    });
+                }
+            }
+        }
+
+        function clampToGround(idx) {
+            if (posY[idx] < GROUND_Y) {
+                const penetration = GROUND_Y - posY[idx];
+                posY[idx] = GROUND_Y;
+                // 速度反射（通过调整prev来影响速度）
+                const vy = posY[idx] - prevY[idx];
+                if (vy < 0) {
+                    prevY[idx] = posY[idx] + Math.abs(vy) * RESTITUTION;
+                }
+                // 摩擦
+                const vx = posX[idx] - prevX[idx];
+                const vz = posZ[idx] - prevZ[idx];
+                prevX[idx] = posX[idx] - vx * (1 - FRICTION) * 0.3;
+                prevZ[idx] = posZ[idx] - vz * (1 - FRICTION) * 0.3;
+            }
+        }
+
+        function solveConstraint(c) {
+            const a = c.a;
+            const b = c.b;
+            const pa = pinned[a];
+            const pb = pinned[b];
+
+            // 两端都是强标记粒子（拖拽权重>0.5），跳过
+            if (pa === 2 && pb === 2) return;
+            // 两端都是pinned（吹风四角），跳过
+            if (pa === 1 && pb === 1) return;
+
+            const ax = posX[a],
+                ay = posY[a],
+                az = posZ[a];
+            const bx = posX[b],
+                by = posY[b],
+                bz = posZ[b];
+            let ddx = bx - ax;
+            let ddy = by - ay;
+            let ddz = bz - az;
+            const dist = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+            if (dist < 1e-9) return;
+
+            const invDist = 1 / dist;
+            const correction = (dist - c.restLen) * c.stiffness;
+            const nx = ddx * invDist;
+            const ny = ddy * invDist;
+            const nz = ddz * invDist;
+
+            const wa = pa === 1 || pa === 2 ? 0 : (pb === 1 || pb === 2 ? 1 : 0.5);
+            const wb = pb === 1 || pb === 2 ? 0 : (pa === 1 || pa === 2 ? 1 : 0.5);
+            const totalW = wa + wb;
+            if (totalW < 1e-9) return;
+
+            const ca = correction * (wa / totalW);
+            const cb = correction * (wb / totalW);
+
+            if (wa > 0) { posX[a] += nx * ca;
+                posY[a] += ny * ca;
+                posZ[a] += nz * ca; }
+            if (wb > 0) { posX[b] -= nx * cb;
+                posY[b] -= ny * cb;
+                posZ[b] -= nz * cb; }
+        }
+
+        function applyFloorClamping() {
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (pinned[i] === 0) clampToGround(i);
+            }
+        }
+
+        function physicsStep() {
+            // Verlet积分
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (pinned[i] === 1 || pinned[i] === 2) {
+                    // 跳过积分，保持位置（强标记或pinned）
+                    prevX[i] = posX[i];
+                    prevY[i] = posY[i];
+                    prevZ[i] = posZ[i];
+                    continue;
+                }
+                const ppx = prevX[i];
+                const ppy = prevY[i];
+                const ppz = prevZ[i];
+                const cx = posX[i];
+                const cy = posY[i];
+                const cz = posZ[i];
+
+                let vx = cx - ppx;
+                let vy = cy - ppy;
+                let vz = cz - ppz;
+
+                // 速度钳制
+                const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                if (speed > MAX_VELOCITY) {
+                    const s = MAX_VELOCITY / speed;
+                    vx *= s;
+                    vy *= s;
+                    vz *= s;
+                }
+
+                prevX[i] = cx;
+                prevY[i] = cy;
+                prevZ[i] = cz;
+
+                posX[i] = cx + vx;
+                posY[i] = cy + vy - GRAVITY * DT * DT;
+                posZ[i] = cz + vz;
+            }
+
+            // 第一层地面碰撞
+            applyFloorClamping();
+
+            // 约束求解迭代
+            for (let iter = 0; iter < CONSTRAINT_ITERS; iter++) {
+                for (let ci = 0; ci < constraints.length; ci++) {
+                    solveConstraint(constraints[ci]);
+                }
+                // 每次迭代后地面碰撞
+                applyFloorClamping();
+            }
+
+            // 最终地面碰撞
+            applyFloorClamping();
+
+            // 速度钳制（通过prev调整）
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (pinned[i] === 1 || pinned[i] === 2) continue;
+                const vx = posX[i] - prevX[i];
+                const vy = posY[i] - prevY[i];
+                const vz = posZ[i] - prevZ[i];
+                const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+                if (speed > MAX_VELOCITY) {
+                    const s = MAX_VELOCITY / speed;
+                    prevX[i] = posX[i] - vx * s;
+                    prevY[i] = posY[i] - vy * s;
+                    prevZ[i] = posZ[i] - vz * s;
+                }
+            }
+        }
+
+        // ─────────────────────────────────────
+        // 几何体 & Mesh
+        // ─────────────────────────────────────
+        const sharedPositions = new Float32Array(PARTICLE_COUNT * 3);
+        const frontUVs = new Float32Array(PARTICLE_COUNT * 2);
+        const backUVs = new Float32Array(PARTICLE_COUNT * 2);
+        const indices = [];
+
+        function initGeometryData() {
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    const idx = particleIndex(ix, iy);
+                    const u = ix / (GRID_X - 1);
+                    const v = iy / (GRID_Y - 1);
+                    frontUVs[idx * 2] = u;
+                    frontUVs[idx * 2 + 1] = v;
+                    backUVs[idx * 2] = 1 - u;
+                    backUVs[idx * 2 + 1] = v;
+                }
+            }
+            for (let iy = 0; iy < GRID_Y - 1; iy++) {
+                for (let ix = 0; ix < GRID_X - 1; ix++) {
+                    const a = particleIndex(ix, iy);
+                    const b = particleIndex(ix + 1, iy);
+                    const c = particleIndex(ix + 1, iy + 1);
+                    const d = particleIndex(ix, iy + 1);
+                    indices.push(a, b, c);
+                    indices.push(a, c, d);
+                }
+            }
+        }
+
+        function updateSharedPositions() {
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                sharedPositions[i * 3] = posX[i];
+                sharedPositions[i * 3 + 1] = posY[i];
+                sharedPositions[i * 3 + 2] = posZ[i];
+            }
+        }
+
+        initParticles();
+        createConstraints();
+        initGeometryData();
+        updateSharedPositions();
+
+        // 正面geometry
+        const frontGeo = new THREE.BufferGeometry();
+        frontGeo.setAttribute('position', new THREE.BufferAttribute(sharedPositions, 3));
+        frontGeo.setAttribute('uv', new THREE.BufferAttribute(frontUVs, 2));
+        frontGeo.setIndex(indices);
+        frontGeo.computeVertexNormals();
+
+        // 背面geometry（共享position，不同UV）
+        const backGeo = new THREE.BufferGeometry();
+        backGeo.setAttribute('position', new THREE.BufferAttribute(sharedPositions, 3));
+        backGeo.setAttribute('uv', new THREE.BufferAttribute(backUVs, 2));
+        backGeo.setIndex(indices);
+        backGeo.computeVertexNormals();
+
+        // 正面材质
+        const frontMat = new THREE.MeshPhysicalMaterial({
+            map: frontTexture,
+            bumpMap: bumpTexture,
+            bumpScale: 0.006,
+            roughness: 0.55,
+            metalness: 0.01,
+            clearcoat: 0.05,
+            clearcoatRoughness: 0.4,
+            side: THREE.FrontSide,
+            specularIntensity: 0.15,
+            specularColor: new THREE.Color('#ffffff'),
+        });
+
+        // 背面材质
+        const backMat = new THREE.MeshPhysicalMaterial({
+            map: backTexture,
+            bumpMap: bumpTexture,
+            bumpScale: 0.006,
+            roughness: 0.55,
+            metalness: 0.01,
+            clearcoat: 0.05,
+            clearcoatRoughness: 0.4,
+            side: THREE.BackSide,
+            specularIntensity: 0.15,
+            specularColor: new THREE.Color('#ffffff'),
+        });
+
+        const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+        frontMesh.castShadow = true;
+        frontMesh.receiveShadow = true;
+        scene.add(frontMesh);
+
+        const backMesh = new THREE.Mesh(backGeo, backMat);
+        backMesh.castShadow = true;
+        backMesh.receiveShadow = true;
+        scene.add(backMesh);
+
+        // ─────────────────────────────────────
+        // 交互 - 区域拖拽
+        // ─────────────────────────────────────
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const dragPlane = new THREE.Plane();
+        const dragStartPoint = new THREE.Vector3();
+        const dragCurrentPoint = new THREE.Vector3();
+        const dragOffset = new THREE.Vector3();
+        const dragTargetPos = new THREE.Vector3();
+        const particleStartPos = new Float32Array(PARTICLE_COUNT * 3);
+
+        let isDragging = false;
+        let dragRadius = 0.55;
+        let dragCenterParticle = -1;
+        const markedParticles = [];
+        const tempVec3_1 = new THREE.Vector3();
+        const tempVec3_2 = new THREE.Vector3();
+
+        function smoothstep(edge0, edge1, x) {
+            const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+            return t * t * (3 - 2 * t);
+        }
+
+        function getPointerPos(event) {
+            const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+            const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function findClosestParticle(intersectPoint) {
+            let minDist = Infinity;
+            let closest = -1;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const dx = posX[i] - intersectPoint.x;
+                const dy = posY[i] - intersectPoint.y;
+                const dz = posZ[i] - intersectPoint.z;
+                const dist = dx * dx + dy * dy + dz * dz;
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = i;
+                }
+            }
+            return closest;
+        }
+
+        function markParticles(centerIdx) {
+            markedParticles.length = 0;
+            if (centerIdx < 0) return;
+            const cx = posX[centerIdx];
+            const cy = posY[centerIdx];
+            const cz = posZ[centerIdx];
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const dx = posX[i] - cx;
+                const dy = posY[i] - cy;
+                const dz = posZ[i] - cz;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                const weight = smoothstep(dragRadius, dragRadius * 0.2, dist);
+                dragWeight[i] = weight;
+                if (weight > 0.001) {
+                    markedParticles.push(i);
+                }
+                if (weight > 0.5) {
+                    pinned[i] = 2;
+                } else if (pinned[i] === 2) {
+                    pinned[i] = 0;
+                }
+            }
+        }
+
+        function unmarkAllParticles() {
+            for (const idx of markedParticles) {
+                if (pinned[idx] === 2) pinned[idx] = 0;
+                dragWeight[idx] = 0;
+            }
+            markedParticles.length = 0;
+            dragCenterParticle = -1;
+        }
+
+        function onPointerDown(event) {
+            if (event.target.tagName === 'BUTTON') return;
+            getPointerPos(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([frontMesh, backMesh], false);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                dragCenterParticle = findClosestParticle(point);
+                if (dragCenterParticle >= 0) {
+                    isDragging = true;
+                    dragStartPoint.copy(point);
+                    dragPlane.setFromNormalAndCoplanarPoint(
+                        camera.getWorldDirection(tempVec3_1).negate(),
+                        point
+                    );
+                    markParticles(dragCenterParticle);
+                    // 保存起始粒子位置
+                    for (const idx of markedParticles) {
+                        particleStartPos[idx * 3] = posX[idx];
+                        particleStartPos[idx * 3 + 1] = posY[idx];
+                        particleStartPos[idx * 3 + 2] = posZ[idx];
+                    }
+                    renderer.domElement.style.cursor = 'grabbing';
+                }
+            }
+        }
+
+        function onPointerMove(event) {
+            if (!isDragging) return;
+            getPointerPos(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectPlane(dragPlane, dragCurrentPoint);
+
+            if (intersects) {
+                dragOffset.subVectors(dragCurrentPoint, dragStartPoint);
+
+                // 钳制拖拽距离
+                const maxDrag = 2.5;
+                const dragLen = dragOffset.length();
+                if (dragLen > maxDrag) {
+                    dragOffset.normalize().multiplyScalar(maxDrag);
+                }
+
+                for (const idx of markedParticles) {
+                    const w = dragWeight[idx];
+                    if (w <= 0) continue;
+                    const sx = particleStartPos[idx * 3];
+                    const sy = particleStartPos[idx * 3 + 1];
+                    const sz = particleStartPos[idx * 3 + 2];
+                    const tx = sx + dragOffset.x * w;
+                    const ty = sy + dragOffset.y * w;
+                    const tz = sz + dragOffset.z * w;
+                    // 平滑移动
+                    posX[idx] += (tx - posX[idx]) * 0.7;
+                    posY[idx] += (ty - posY[idx]) * 0.7;
+                    posZ[idx] += (tz - posZ[idx]) * 0.7;
+                    prevX[idx] = posX[idx];
+                    prevY[idx] = posY[idx];
+                    prevZ[idx] = posZ[idx];
+                    // 地面钳制
+                    if (posY[idx] < GROUND_Y) {
+                        posY[idx] = GROUND_Y;
+                        prevY[idx] = GROUND_Y;
+                    }
+                }
+            }
+        }
+
+        function onPointerUp() {
+            if (isDragging) {
+                unmarkAllParticles();
+                isDragging = false;
+                renderer.domElement.style.cursor = 'pointer';
+            }
+        }
+
+        // ─────────────────────────────────────
+        // 相机控制（键盘+滚轮）
+        // ─────────────────────────────────────
+        const keys = {};
+        const keyRotationSpeed = 2.2;
+        const zoomSpeed = 0.08;
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
+                e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                e.key === 'w' || e.key === 'a' || e.key === 's' || e.key === 'd') {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        window.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            cameraRadius += e.deltaY * zoomSpeed * 0.01 * cameraRadius;
+            cameraRadius = Math.max(minRadius, Math.min(maxRadius, cameraRadius));
+            updateCameraPosition();
+        }, { passive: false });
+
+        function updateCameraFromKeys(deltaTime) {
+            let rotX = 0;
+            let rotY = 0;
+            if (keys['arrowleft'] || keys['a']) rotY -= keyRotationSpeed * deltaTime;
+            if (keys['arrowright'] || keys['d']) rotY += keyRotationSpeed * deltaTime;
+            if (keys['arrowup'] || keys['w']) rotX -= keyRotationSpeed * deltaTime;
+            if (keys['arrowdown'] || keys['s']) rotX += keyRotationSpeed * deltaTime;
+
+            if (rotY !== 0) {
+                cameraTheta += rotY;
+                cameraTheta = cameraTheta % (Math.PI * 2);
+            }
+            if (rotX !== 0) {
+                cameraPhi += rotX;
+                cameraPhi = Math.max(minPhi, Math.min(maxPhi, cameraPhi));
+            }
+            if (rotX !== 0 || rotY !== 0) {
+                updateCameraPosition();
+            }
+        }
+
+        // ─────────────────────────────────────
+        // 吹风系统
+        // ─────────────────────────────────────
+        let windActive = false;
+        let windTime = 0;
+        const windCornerIndices = [
+            particleIndex(0, 0),
+            particleIndex(GRID_X - 1, 0),
+            particleIndex(0, GRID_Y - 1),
+            particleIndex(GRID_X - 1, GRID_Y - 1),
+        ];
+        const windCornerPositions = new Float32Array(windCornerIndices.length * 3);
+
+        function activateWind() {
+            windActive = true;
+            windTime = 0;
+            // 保存并固定四角
+            for (let ci = 0; ci < windCornerIndices.length; ci++) {
+                const idx = windCornerIndices[ci];
+                pinned[idx] = 1;
+                windCornerPositions[ci * 3] = posX[idx];
+                windCornerPositions[ci * 3 + 1] = posY[idx] + 0.35;
+                windCornerPositions[ci * 3 + 2] = posZ[idx];
+                // 平滑提升
+                posY[idx] = windCornerPositions[ci * 3 + 1];
+                prevY[idx] = posY[idx];
+            }
+            btnWind.classList.add('active');
+            btnWind.textContent = '💨 吹风中...';
+        }
+
+        function deactivateWind() {
+            windActive = false;
+            for (const idx of windCornerIndices) {
+                pinned[idx] = 0;
+            }
+            btnWind.classList.remove('active');
+            btnWind.textContent = '💨 吹风';
+        }
+
+        function applyWindForces(deltaTime) {
+            if (!windActive) return;
+            windTime += deltaTime;
+            const t = windTime;
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                if (pinned[i] === 1) {
+                    // 保持四角位置
+                    const ci = windCornerIndices.indexOf(i);
+                    if (ci >= 0) {
+                        posX[i] = windCornerPositions[ci * 3];
+                        posY[i] = windCornerPositions[ci * 3 + 1];
+                        posZ[i] = windCornerPositions[ci * 3 + 2];
+                        prevX[i] = posX[i];
+                        prevY[i] = posY[i];
+                        prevZ[i] = posZ[i];
+                    }
+                    continue;
+                }
+                if (pinned[i] === 2) continue;
+
+                // 基于位置的正弦风力
+                const px = posX[i];
+                const pz = posZ[i];
+                const windForceY =
+                    Math.sin(t * 2.8 + px * 3.5) * Math.cos(t * 1.9 + pz * 2.8) * 0.025 +
+                    Math.sin(t * 1.4 + px * 1.8 + pz * 2.2) * 0.018 +
+                    Math.cos(t * 3.2 + pz * 4.0) * Math.sin(t * 2.1 + px * 3.0) * 0.02;
+                const windForceX =
+                    Math.cos(t * 2.3 + pz * 2.5) * Math.sin(t * 1.6 + px * 3.3) * 0.012;
+                const windForceZ =
+                    Math.sin(t * 2.0 + px * 3.8) * Math.cos(t * 1.7 + pz * 2.0) * 0.012;
+
+                posY[i] += windForceY;
+                posX[i] += windForceX;
+                posZ[i] += windForceZ;
+            }
+        }
+
+        // ─────────────────────────────────────
+        // 重置功能
+        // ─────────────────────────────────────
+        function resetBill() {
+            unmarkAllParticles();
+            if (windActive) deactivateWind();
+            const startX = -BILL_W / 2;
+            const startZ = -BILL_H / 2;
+            const initY = 0.004;
+            for (let iy = 0; iy < GRID_Y; iy++) {
+                for (let ix = 0; ix < GRID_X; ix++) {
+                    const idx = particleIndex(ix, iy);
+                    posX[idx] = startX + ix * dx;
+                    posY[idx] = initY;
+                    posZ[idx] = startZ + iy * dz;
+                    prevX[idx] = posX[idx];
+                    prevY[idx] = posY[idx];
+                    prevZ[idx] = posZ[idx];
+                    pinned[idx] = 0;
+                    dragWeight[idx] = 0;
+                }
+            }
+            updateSharedPositions();
+            frontGeo.computeVertexNormals();
+            backGeo.computeVertexNormals();
+            frontGeo.attributes.position.needsUpdate = true;
+            backGeo.attributes.position.needsUpdate = true;
+        }
+
+        // 暴露到全局
+        window.resetBill = resetBill;
+
+        // ─────────────────────────────────────
+        // 事件监听
+        // ─────────────────────────────────────
+        renderer.domElement.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointerleave', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+
+        // 防止移动端手势
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('gesturechange', (e) => e.preventDefault());
+
+        btnWind.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (windActive) deactivateWind();
+            else activateWind();
+        });
+        btnReset.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetBill();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ─────────────────────────────────────
+        // 动画循环
+        // ─────────────────────────────────────
+        const clock = new THREE.Clock();
+        let physicsAccum = 0;
+        const physicsDt = DT;
+
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+
+            const rawDelta = clock.getDelta();
+            const deltaTime = Math.min(rawDelta, 0.1);
+
+            updateCameraFromKeys(deltaTime);
+
+            // 物理子步
+            physicsAccum += deltaTime;
+            let physSteps = 0;
+            while (physicsAccum >= physicsDt && physSteps < 4) {
+                physicsAccum -= physicsDt;
+                applyWindForces(physicsDt);
+                physicsStep();
+                physSteps++;
+            }
+            if (physSteps === 0 && physicsAccum > 0) {
+                applyWindForces(physicsAccum);
+                physicsStep();
+                physicsAccum = 0;
+            }
+
+            // 更新几何体
+            updateSharedPositions();
+            frontGeo.attributes.position.needsUpdate = true;
+            backGeo.attributes.position.needsUpdate = true;
+            frontGeo.computeVertexNormals();
+            backGeo.computeVertexNormals();
+            frontGeo.index.needsUpdate = false;
+            backGeo.index.needsUpdate = false;
+
+            // 更新色差shader时间
+            if (chromaVignettePass.uniforms && chromaVignettePass.uniforms.uTime) {
+                chromaVignettePass.uniforms.uTime.value = timestamp * 0.001;
+            }
+
+            composer.render();
+        }
+
+        // ─────────────────────────────────────
+        // 启动
+        // ─────────────────────────────────────
+        updateSharedPositions();
+        frontGeo.computeVertexNormals();
+        backGeo.computeVertexNormals();
+        frontGeo.attributes.position.needsUpdate = true;
+        backGeo.attributes.position.needsUpdate = true;
+        requestAnimationFrame(animate);
+
+        console.log('🪙 3D $100 美元纸币场景已就绪');
+        console.log('  - 拖拽纸币查看物理效果');
+        console.log('  - 方向键/WASD 旋转视角');
+        console.log('  - 滚轮缩放');
+        console.log('  - 点击"吹风"按钮查看飘动效果');
+        console.log('  - 粒子网格:', GRID_X, '×', GRID_Y, '=', PARTICLE_COUNT, '粒子');
+        console.log('  - 约束数量:', constraints.length);
+        console.log('  - 每帧约束迭代:', CONSTRAINT_ITERS, '次');
+    </script>
+</body>
+</html>

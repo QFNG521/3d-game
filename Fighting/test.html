@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>资源加载测试</title>
+<style>
+body { background: #1a1a2e; color: #fff; font-family: Arial; padding: 20px; }
+.test-item { margin: 10px 0; padding: 10px; background: #2a2a3e; border-radius: 8px; }
+.loaded { border-left: 4px solid #2ecc71; }
+.failed { border-left: 4px solid #e74c3c; }
+h2 { color: #ffd700; }
+img { max-width: 200px; margin: 10px; border: 2px solid #444; }
+.preview { display: flex; flex-wrap: wrap; gap: 10px; }
+</style>
+</head>
+<body>
+<h1>资源加载测试</h1>
+<div id="results"></div>
+<h2>背景图片</h2>
+<div id="bg-tests" class="preview"></div>
+<h2>角色图片 (Ryu)</h2>
+<div id="char-tests" class="preview"></div>
+
+<script>
+const resources = [
+  { name: 'bg-street.png', path: 'assets/backgrounds/bg-street.png', type: 'bg' },
+  { name: 'bg-arena.png', path: 'assets/backgrounds/bg-arena.png', type: 'bg' },
+  { name: 'bg-rooftop.png', path: 'assets/backgrounds/bg-rooftop.png', type: 'bg' },
+  { name: 'bg-temple.png', path: 'assets/backgrounds/bg-temple.png', type: 'bg' },
+  { name: 'ground.png', path: 'assets/backgrounds/ground.png', type: 'bg' },
+  { name: 'ryu-idle.png', path: 'assets/characters/ryu/idle.png', type: 'char' },
+  { name: 'ryu-walk.png', path: 'assets/characters/ryu/walk.png', type: 'char' }
+];
+
+const results = document.getElementById('results');
+const bgTests = document.getElementById('bg-tests');
+const charTests = document.getElementById('char-tests');
+
+resources.forEach(res => {
+  const img = new Image();
+  const item = document.createElement('div');
+  item.className = 'test-item';
+  
+  img.onload = () => {
+    item.classList.add('loaded');
+    item.innerHTML = `<strong>✓ ${res.name}</strong> - ${img.width}x${img.height}`;
+    const preview = document.createElement('img');
+    preview.src = res.path;
+    preview.title = res.name;
+    if (res.type === 'bg') bgTests.appendChild(preview);
+    else charTests.appendChild(preview);
+  };
+  
+  img.onerror = () => {
+    item.classList.add('failed');
+    item.innerHTML = `<strong>✗ ${res.name}</strong> - 加载失败!`;
+  };
+  
+  item.innerHTML = `<strong>${res.name}</strong> - 加载中...`;
+  results.appendChild(item);
+  img.src = res.path;
+});
+</script>
+</body>
+</html>

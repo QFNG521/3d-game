@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Interactive $100 Bill</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  body { 
+    font-family: 'Inter', sans-serif; 
+    margin: 0; 
+    overflow: hidden; 
+    background: #f5f3f0;
+    cursor: pointer;
+  }
+  #canvas-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  .glass-toolbar {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+  .glass-btn {
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .glass-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+  }
+  .glass-btn.active {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.4);
+  }
+  .hint-text {
+    color: rgba(100, 100, 100, 0.7);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+    font-size: 18px;
+  }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div class="loading" id="loading">Loading 3D Scene...</div>
+
+<div class="fixed top-6 left-1/2 -translate-x-1/2 z-10" style="display:none;" id="ui">
+  <p class="hint-text">拖拽纸币 · 方向键/WASD旋转视角 · 滚轮缩放</p>
+</div>
+
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-10" style="display:none;" id="toolbar">
+  <div class="glass-toolbar rounded-2xl px-3 py-2 flex gap-2">
+    <button id="wind-btn" class="glass-btn rounded-xl px-5 py-2.5 flex items-center gap-2 border border-transparent">
+      <i class="fas fa-wind text-gray-600"></i>
+      <span class="text-sm font-medium text-gray-700">吹风</span>
+    </button>
+    <button id="reset-btn" class="glass-btn rounded-xl px-5 py-2.5 flex items-center gap-2 border border-transparent">
+      <i class="fas fa-rotate-left text-gray-600"></i>
+      <span class="text-sm font-medium text-gray-700">重置</span>
+    </button>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+// ==================== CONFIGURATION ====================
+const CONFIG = {
+  billWidth: 4.0,
+  billHeight: 1.70,
+  cols: 48,
+  rows: 20,
+  gravity: -15.0,
+  constraintIterations: 14,
+  maxDisplacement: 0.08,
+  dragRadius: 1.2,
+  floorY: 0.0,
+  floorFriction: 0.7
+};
+
+// ==================== PHYSICS SYSTEM ====================
+class BillPhysics {
+  constructor(width, height, cols, rows) {
+    this.cols = cols;
+    this.rows = rows;
+    this.width = width;
+    this.height = height;
+    this.dx = width / (cols - 1);
+    this.dy = height / (rows - 1);
+    
+    const numParticles = cols * rows;
+    this.positions = new Float32Array(numParticles * 3);
+    this.prevPositions = new Float32Array(numParticles * 3);
+    this.pinned = new Float32Array(numParticles);
+    this.dragWeight = new Float32Array(numParticles);
+    
+    this.initPositions();
+    this.constraints = [];
+    this.createConstraints();
+    
+    this.isDragging = false;
+    this.dragParticles = [];
+    this.dragWeights = [];
+    this.dragStartPositions = [];
+    this.dragStartPoint = new THREE.Vector3();
+    this.dragPlane = new THREE.Plane();
+    
+    this._tmpV1 = new THREE.Vector3();
+    this._tmpV2 = new THREE.Vector3();
+  }
+  
+  initPositions() {
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        const idx = (j * this.cols + i) * 3;
+        this.positions[idx] = (i - (this.cols - 1) / 2) * this.dx;
+        this.positions[idx + 1] = CONFIG.floorY + 0.01;
+        this.positions[idx + 2] = (j - (this.rows - 1) / 2) * this.dy;
+        this.prevPositions[idx] = this.positions[idx];
+        this.prevPositions[idx + 1] = this.positions[idx + 1];
+        this.prevPositions[idx + 2] = this.positions[idx + 2];
+      }
+    }
+  }
+  
+  getParticleIndex(i, j) {
+    return j * this.cols + i;
+  }
+  
+  createConstraints() {
+    const stiffness = {
+      structural: 0.9,
+      shear: 0.85,
+      bending: 0.98,
+      longRangeBending: 0.95
+    };
+    
+    // Structural
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        if (i < this.cols - 1) this.addConstraint(i, j, i + 1, j, stiffness.structural);
+        if (j < this.rows - 1) this.addConstraint(i, j, i, j + 1, stiffness.structural);
+      }
+    }
+    
+    // Shear
+    for (let j = 0; j < this.rows - 1; j++) {
+      for (let i = 0; i < this.cols - 1; i++) {
+        this.addConstraint(i, j, i + 1, j + 1, stiffness.shear);
+        this.addConstraint(i + 1, j, i, j + 1, stiffness.shear);
+      }
+    }
+    
+    // Bending (skip 1)
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        if (i < this.cols - 2) this.addConstraint(i, j, i + 2, j, stiffness.bending);
+        if (j < this.rows - 2) this.addConstraint(i, j, i, j + 2, stiffness.bending);
+      }
+    }
+    
+    // Long-range bending (skip 3)
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        if (i < this.cols - 4) this.addConstraint(i, j, i + 4, j, stiffness.longRangeBending);
+        if (j < this.rows - 4) this.addConstraint(i, j, i, j + 4, stiffness.longRangeBending);
+      }
+    }
+  }
+  
+  addConstraint(i1, j1, i2, j2, stiffness) {
+    const idx1 = this.getParticleIndex(i1, j1);
+    const idx2 = this.getParticleIndex(i2, j2);
+    
+    const dx = this.positions[idx1 * 3] - this.positions[idx2 * 3];
+    const dy = this.positions[idx1 * 3 + 1] - this.positions[idx2 * 3 + 1];
+    const dz = this.positions[idx1 * 3 + 2] - this.positions[idx2 * 3 + 2];
+    const restLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    
+    this.constraints.push({ p1: idx1, p2: idx2, restLength, stiffness });
+  }
+  
+  update(dt, gravity, windEnabled) {
+    const maxDisp = CONFIG.maxDisplacement;
+    const damping = 0.98;
+    const time = performance.now() * 0.001;
+    
+    // Verlet integration
+    for (let i = 0; i < this.cols * this.rows; i++) {
+      if (this.pinned[i] > 0 || this.dragWeight[i] > 0.5) continue;
+      
+      const idx = i * 3;
+      const px = this.positions[idx];
+      const py = this.positions[idx + 1];
+      const pz = this.positions[idx + 2];
+      
+      let vx = (px - this.prevPositions[idx]) * damping;
+      let vy = (py - this.prevPositions[idx + 1]) * damping;
+      let vz = (pz - this.prevPositions[idx + 2]) * damping;
+      
+      // Velocity clamping
+      const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+      const maxSpeed = maxDisp / dt;
+      if (speed > maxSpeed) {
+        const scale = maxSpeed / speed;
+        vx *= scale; vy *= scale; vz *= scale;
+      }
+      
+      this.prevPositions[idx] = px;
+      this.prevPositions[idx + 1] = py;
+      this.prevPositions[idx + 2] = pz;
+      
+      let fx = 0, fy = gravity, fz = 0;
+      
+      if (windEnabled) {
+        const windX = Math.sin(time * 2.5 + i * 0.15) * 3.0;
+        const windY = Math.cos(time * 1.8 + i * 0.12) * 1.5 + 2.0;
+        const windZ = Math.sin(time * 2.0 + i * 0.2) * 2.5;
+        fx += windX;
+        fy += windY;
+        fz += windZ;
+      }
+      
+      this.positions[idx] = px + vx + fx * dt * dt;
+      this.positions[idx + 1] = py + vy + fy * dt * dt;
+      this.positions[idx + 2] = pz + vz + fz * dt * dt;
+    }
+    
+    // Triple-layer floor clamping - Layer 1 (after integration)
+    this.clampToFloor();
+    
+    // Constraint solving (PBD)
+    for (let iter = 0; iter < CONFIG.constraintIterations; iter++) {
+      this.solveConstraints();
+      // Layer 2 (after each iteration)
+      this.clampToFloor();
+    }
+    
+    // Layer 3 (final)
+    this.clampToFloor();
+  }
+  
+  solveConstraints() {
+    const constraints = this.constraints;
+    const positions = this.positions;
+    const dragWeight = this.dragWeight;
+    const pinned = this.pinned;
+    
+    for (let c = 0; c < constraints.length; c++) {
+      const con = constraints[c];
+      const p1Strong = pinned[con.p1] > 0 || dragWeight[con.p1] > 0.5;
+      const p2Strong = pinned[con.p2] > 0 || dragWeight[con.p2] > 0.5;
+      
+      if (p1Strong && p2Strong) continue;
+      
+      const idx1 = con.p1 * 3;
+      const idx2 = con.p2 * 3;
+      
+      const dx = positions[idx1] - positions[idx2];
+      const dy = positions[idx1 + 1] - positions[idx2 + 1];
+      const dz = positions[idx1 + 2] - positions[idx2 + 2];
+      
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist < 0.0001) continue;
+      
+      const diff = (dist - con.restLength) / dist;
+      
+      const w1 = p1Strong ? 0 : (1 - dragWeight[con.p1] * 0.5);
+      const w2 = p2Strong ? 0 : (1 - dragWeight[con.p2] * 0.5);
+      const wSum = w1 + w2;
+      if (wSum < 0.0001) continue;
+      
+      const corr1 = (diff * con.stiffness * w1) / wSum;
+      const corr2 = (diff * con.stiffness * w2) / wSum;
+      
+      positions[idx1] -= dx * corr1;
+      positions[idx1 + 1] -= dy * corr1;
+      positions[idx1 + 2] -= dz * corr1;
+      
+      positions[idx2] += dx * corr2;
+      positions[idx2 + 1] += dy * corr2;
+      positions[idx2 + 2] += dz * corr2;
+    }
+  }
+  
+  clampToFloor() {
+    const floorY = CONFIG.floorY;
+    const friction = CONFIG.floorFriction;
+    
+    for (let i = 0; i < this.cols * this.rows; i++) {
+      const idx = i * 3;
+      if (this.positions[idx + 1] < floorY) {
+        this.positions[idx + 1] = floorY;
+        
+        // Velocity reflection + friction
+        const vx = this.positions[idx] - this.prevPositions[idx];
+        const vz = this.positions[idx + 2] - this.prevPositions[idx + 2];
+        
+        this.prevPositions[idx] = this.positions[idx] - vx * friction;
+        this.prevPositions[idx + 2] = this.positions[idx + 2] - vz * friction;
+        this.prevPositions[idx + 1] = this.positions[idx + 1];
+      }
+    }
+  }
+  
+  startDrag(intersectionPoint, cameraDir) {
+    const dragRadius = CONFIG.dragRadius;
+    this.dragParticles = [];
+    this.dragWeights = [];
+    this.dragStartPositions = [];
+    
+    // Clear previous drag weights
+    for (let i = 0; i < this.cols * this.rows; i++) {
+      this.dragWeight[i] = 0;
+    }
+    
+    for (let j = 0; j < this.rows; j++) {
+      for (let i = 0; i < this.cols; i++) {
+        const idx = this.getParticleIndex(i, j);
+        const px = this.positions[idx * 3];
+        const py = this.positions[idx * 3 + 1];
+        const pz = this.positions[idx * 3 + 2];
+        
+        const dist = Math.sqrt(
+          (px - intersectionPoint.x) ** 2 +
+          (pz - intersectionPoint.z) ** 2
+        );
+        
+        if (dist < dragRadius) {
+          const t = 1 - (dist / dragRadius);
+          const weight = t * t * (3 - 2 * t); // smoothstep
+          
+          this.dragParticles.push(idx);
+          this.dragWeights.push(weight);
+          this.dragWeight[idx] = weight;
+          this.dragStartPositions.push(new THREE.Vector3(px, py, pz));
+        }
+      }
+    }
+    
+    if (this.dragParticles.length === 0) return false;
+    
+    // Fix drag plane
+    this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, intersectionPoint);
+    this.dragStartPoint.copy(intersectionPoint);
+    this.isDragging = true;
+    
+    return true;
+  }
+  
+  updateDrag(currentPoint) {
+    if (!this.isDragging) return;
+    
+    const offsetX = currentPoint.x - this.dragStartPoint.x;
+    const offsetY = currentPoint.y - this.dragStartPoint.y;
+    const offsetZ = currentPoint.z - this.dragStartPoint.z;
+    
+    // Clamp drag distance
+    const maxDragDist = 4.0;
+    const dragDist = Math.sqrt(offsetX * offsetX + offsetY * offsetY + offsetZ * offsetZ);
+    let scale = 1;
+    if (dragDist > maxDragDist) {
+      scale = maxDragDist / dragDist;
+    }
+    
+    for (let i = 0; i < this.dragParticles.length; i++) {
+      const particleIdx = this.dragParticles[i];
+      const weight = this.dragWeights[i];
+      const startPos = this.dragStartPositions[i];
+      const idx = particleIdx * 3;
+      
+      this.positions[idx] = startPos.x + offsetX * scale * weight;
+      this.positions[idx + 1] = startPos.y + offsetY * scale * weight;
+      this.positions[idx + 2] = startPos.z + offsetZ * scale * weight;
+    }
+  }
+  
+  endDrag() {
+    this.isDragging = false;
+    for (const idx of this.dragParticles) {
+      this.dragWeight[idx] = 0;
+    }
+    this.dragParticles = [];
+    this.dragWeights = [];
+    this.dragStartPositions = [];
+  }
+  
+  setWindEnabled(enabled) {
+    if (enabled) {
+      // Pin four corners
+      this.pinned[this.getParticleIndex(0, 0)] = 1;
+      this.pinned[this.getParticleIndex(this.cols - 1, 0)] = 1;
+      this.pinned[this.getParticleIndex(0, this.rows - 1)] = 1;
+      this.pinned[this.getParticleIndex(this.cols - 1, this.rows - 1)] = 1;
+      
+      // Lift corners
+      const liftAmount = 2.5;
+      const corners = [
+        this.getParticleIndex(0, 0),
+        this.getParticleIndex(this.cols - 1, 0),
+        this.getParticleIndex(0, this.rows - 1),
+        this.getParticleIndex(this.cols - 1, this.rows - 1)
+      ];
+      
+      for (const idx of corners) {
+        this.positions[idx * 3 + 1] = CONFIG.floorY + liftAmount;
+        this.prevPositions[idx * 3 + 1] = CONFIG.floorY + liftAmount;
+      }
+    } else {
+      this.pinned.fill(0);
+    }
+  }
+  
+  reset() {
+    this.initPositions();
+    this.pinned.fill(0);
+    this.dragWeight.fill(0);
+    this.dragParticles = [];
+    this.dragWeights = [];
+    this.dragStartPositions = [];
+    this.isDragging = false;
+  }
+  
+  updateMesh(positionAttr) {
+    positionAttr.array.set(this.positions);
+    positionAttr.needsUpdate = true;
+  }
+}
+
+// ==================== TEXTURE GENERATION ====================
+function createFrontTexture() {
+  const canvas = document.createElement('canvas');
+  const scale = 2.5;
+  canvas.width = 2048;
+  canvas.height = 872;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.scale(scale, scale);
+  const w = canvas.width / scale;
+  const h = canvas.height / scale;
+  
+  // Background
+  ctx.fillStyle = '#f0eed8';
+  ctx.fillRect(0, 0, w, h);
+  
+  // Paper noise
+  for (let i = 0; i < 8000; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const alpha = Math.random() * 0.06;
+    ctx.fillStyle = `rgba(80, 70, 50, ${alpha})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  
+  // Red and blue fibers
+  for (let i = 0; i < 150; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const len = 2 + Math.random() * 4;
+    const angle = Math.random() * Math.PI;
+    ctx.strokeStyle = Math.random() > 0.5 ? 'rgba(180, 30, 30, 0.4)' : 'rgba(30, 60, 150, 0.4)';
+    ctx.lineWidth = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  
+  const inkColor = '#0d2b06';
+  const inkLight = '#1a4d0e';
+  const inkLighter = '#2a6b1e';
+  
+  // Outer border
+  ctx.strokeStyle = inkColor;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
+  
+  // Inner border
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(14, 14, w - 28, h - 28);
+  
+  // Guilloche pattern
+  drawGuilloche(ctx, 18, 18, w - 36, h - 36, inkLighter);
+  
+  // Corner flourishes
+  drawCornerFlourish(ctx, 14, 14, 1, 1, inkColor);
+  drawCornerFlourish(ctx, w - 14, 14, -1, 1, inkColor);
+  drawCornerFlourish(ctx, 14, h - 14, 1, -1, inkColor);
+  drawCornerFlourish(ctx, w - 14, h - 14, -1, -1, inkColor);
+  
+  // Title text
+  ctx.fillStyle = inkColor;
+  ctx.font = 'bold 13px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('FEDERAL RESERVE NOTE', w / 2, 28);
+  
+  ctx.font = 'bold 9px Georgia, serif';
+  ctx.fillText('THE UNITED STATES OF AMERICA', w / 2, 42);
+  
+  // "100" in corners
+  ctx.font = 'bold 28px Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('100', 25, 75);
+  ctx.textAlign = 'right';
+  ctx.fillText('100', w - 25, 75);
+  ctx.textAlign = 'left';
+  ctx.fillText('100', 25, h - 45);
+  ctx.textAlign = 'right';
+  ctx.fillText('100', w - 25, h - 45);
+  
+  // Cat portrait
+  drawCatPortrait(ctx, w / 2, h / 2, 75, inkColor);
+  
+  // Federal Reserve seal (left)
+  drawSeal(ctx, 110, h / 2, 32, 'FEDERAL RESERVE SYSTEM', 'A', inkColor, '#3a6b1e');
+  
+  // Treasury seal (right)
+  drawSeal(ctx, w - 110, h / 2, 32, 'DEPARTMENT OF THE TREASURY', '1789', inkColor, '#8b4a2e');
+  
+  // Serial numbers
+  ctx.fillStyle = inkColor;
+  ctx.font = 'bold 11px Courier New, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('A 12345678 A', 35, 95);
+  ctx.fillText('A 12345678 A', 35, h - 65);
+  ctx.textAlign = 'right';
+  ctx.fillText('A 12345678 A', w - 35, 95);
+  ctx.fillText('A 12345678 A', w - 35, h - 65);
+  
+  // Security thread
+  ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';
+  ctx.fillRect(w / 2 - 1.5, 50, 3, h - 100);
+  ctx.fillStyle = inkColor;
+  ctx.font = 'bold 4px Arial';
+  ctx.save();
+  ctx.translate(w / 2, 60);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillText('USA 100 USA 100 USA 100', 0, 0);
+  ctx.restore();
+  
+  // Microprinting
+  ctx.font = '1.5px Arial';
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', 50, 105);
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', 50, h - 75);
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', w - 200, 105);
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', w - 200, h - 75);
+  
+  // "ONE HUNDRED DOLLARS"
+  ctx.font = 'bold 7px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ONE HUNDRED DOLLARS', w / 2, h - 25);
+  
+  // Lathework patterns
+  drawLathework(ctx, 60, h / 2, 20, inkLight);
+  drawLathework(ctx, w - 60, h / 2, 20, inkLight);
+  
+  // Watermark area (subtle)
+  ctx.fillStyle = 'rgba(200, 200, 180, 0.15)';
+  ctx.fillRect(w - 80, 60, 40, h - 120);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 16;
+  return texture;
+}
+
+function createBackTexture() {
+  const canvas = document.createElement('canvas');
+  const scale = 2.5;
+  canvas.width = 2048;
+  canvas.height = 872;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.scale(scale, scale);
+  const w = canvas.width / scale;
+  const h = canvas.height / scale;
+  
+  // Background
+  ctx.fillStyle = '#f0eed8';
+  ctx.fillRect(0, 0, w, h);
+  
+  // Paper noise
+  for (let i = 0; i < 8000; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const alpha = Math.random() * 0.06;
+    ctx.fillStyle = `rgba(80, 70, 50, ${alpha})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  
+  const inkColor = '#0d2b06';
+  const inkLight = '#1a4d0e';
+  const inkLighter = '#2a6b1e';
+  
+  // Borders
+  ctx.strokeStyle = inkColor;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(14, 14, w - 28, h - 28);
+  
+  drawGuilloche(ctx, 18, 18, w - 36, h - 36, inkLighter);
+  
+  drawCornerFlourish(ctx, 14, 14, 1, 1, inkColor);
+  drawCornerFlourish(ctx, w - 14, 14, -1, 1, inkColor);
+  drawCornerFlourish(ctx, 14, h - 14, 1, -1, inkColor);
+  drawCornerFlourish(ctx, w - 14, h - 14, -1, -1, inkColor);
+  
+  // Text
+  ctx.fillStyle = inkColor;
+  ctx.font = 'bold 13px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('UNITED STATES OF AMERICA', w / 2, 28);
+  
+  ctx.font = 'bold 8px Georgia, serif';
+  ctx.fillText('IN GOD WE TRUST', w / 2, 42);
+  
+  ctx.font = 'bold 7px Georgia, serif';
+  ctx.fillText('ONE HUNDRED DOLLARS', w / 2, h - 22);
+  
+  // "100" in corners
+  ctx.font = 'bold 28px Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('100', 25, 75);
+  ctx.textAlign = 'right';
+  ctx.fillText('100', w - 25, 75);
+  ctx.textAlign = 'left';
+  ctx.fillText('100', 25, h - 45);
+  ctx.textAlign = 'right';
+  ctx.fillText('100', w - 25, h - 45);
+  
+  // Independence Hall
+  drawIndependenceHall(ctx, w / 2, h / 2, 90, inkColor);
+  
+  // Microprinting
+  ctx.font = '1.5px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', w / 2, 55);
+  ctx.fillText('THEUNITEDSTATESOFAMERICA', w / 2, h - 55);
+  
+  // Lathework
+  drawLathework(ctx, 60, h / 2, 18, inkLight);
+  drawLathework(ctx, w - 60, h / 2, 18, inkLight);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 16;
+  return texture;
+}
+
+function drawGuilloche(ctx, x, y, w, h, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.25;
+  
+  for (let i = 0; i < 30; i++) {
+    ctx.beginPath();
+    const offset = i * 1.5;
+    const amplitude = 2 + Math.sin(i * 0.3) * 1;
+    for (let t = 0; t <= 1; t += 0.005) {
+      const px = x + w * t;
+      const py = y + h / 2 + Math.sin(t * Math.PI * 12 + offset) * amplitude;
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  
+  // Vertical guilloche
+  for (let i = 0; i < 15; i++) {
+    ctx.beginPath();
+    const offset = i * 2;
+    const amplitude = 1.5;
+    for (let t = 0; t <= 1; t += 0.005) {
+      const py = y + h * t;
+      const px = x + w / 2 + Math.sin(t * Math.PI * 8 + offset) * amplitude;
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawCornerFlourish(ctx, x, y, dirX, dirY, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.4;
+  ctx.fillStyle = color;
+  
+  // Fan pattern
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI / 2;
+    const cx = x + dirX * 12;
+    const cy = y + dirY * 12;
+    
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(
+      cx + dirX * Math.cos(angle) * 8,
+      cy + dirY * Math.sin(angle) * 8
+    );
+    ctx.stroke();
+  }
+  
+  // Curves
+  ctx.lineWidth = 0.3;
+  for (let i = 0; i < 5; i++) {
+    const r = 4 + i * 2;
+    ctx.beginPath();
+    ctx.arc(x + dirX * 12, y + dirY * 12, r, 0, Math.PI / 2);
+    ctx.stroke();
+  }
+  
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(x + dirX * 12, y + dirY * 12, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawCatPortrait(ctx, cx, cy, radius, color) {
+  ctx.save();
+  
+  // Oval frame background
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, radius * 0.75, radius, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#e8e5cc';
+  ctx.fill();
+  
+  // Guilloche background in oval
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.15;
+  for (let i = -radius; i < radius; i += 0.8) {
+    ctx.beginPath();
+    for (let t = 0; t <= 1; t += 0.02) {
+      const angle = t * Math.PI * 2;
+      const r = radius * 0.75 + Math.sin(angle * 6 + i * 0.3) * 1.5;
+      const px = cx + Math.cos(angle) * r * 0.75;
+      const py = cy + Math.sin(angle) * r;
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  
+  // Oval border
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, radius * 0.75, radius, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Decorative ring
+  ctx.lineWidth = 0.3;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, radius * 0.7, radius * 0.93, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Draw cat
+  const catSize = radius * 0.55;
+  const catY = cy + catSize * 0.05;
+  
+  // Head
+  ctx.fillStyle = '#e8c89a';
+  ctx.beginPath();
+  ctx.arc(cx, catY, catSize * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.4;
+  ctx.stroke();
+  
+  // Ears
+  ctx.fillStyle = '#e8c89a';
+  // Left ear
+  ctx.beginPath();
+  ctx.moveTo(cx - catSize * 0.35, catY - catSize * 0.2);
+  ctx.lineTo(cx - catSize * 0.45, catY - catSize * 0.55);
+  ctx.lineTo(cx - catSize * 0.15, catY - catSize * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  
+  // Right ear
+  ctx.beginPath();
+  ctx.moveTo(cx + catSize * 0.35, catY - catSize * 0.2);
+  ctx.lineTo(cx + catSize * 0.45, catY - catSize * 0.55);
+  ctx.lineTo(cx + catSize * 0.15, catY - catSize * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  
+  // Inner ears
+  ctx.fillStyle = '#e8a0a8';
+  ctx.beginPath();
+  ctx.moveTo(cx - catSize * 0.3, catY - catSize * 0.25);
+  ctx.lineTo(cx - catSize * 0.38, catY - catSize * 0.48);
+  ctx.lineTo(cx - catSize * 0.2, catY - catSize * 0.33);
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.beginPath();
+  ctx.moveTo(cx + catSize * 0.3, catY - catSize * 0.25);
+  ctx.lineTo(cx + catSize * 0.38, catY - catSize * 0.48);
+  ctx.lineTo(cx + catSize * 0.20, catY - catSize * 0.33);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Eyes
+  const eyeY = catY - catSize * 0.05;
+  const eyeOffsetX = catSize * 0.18;
+  
+  // Left eye white
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(cx - eyeOffsetX, eyeY, catSize * 0.11, catSize * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.25;
+  ctx.stroke();
+  
+  // Left iris
+  const irisGrad = ctx.createRadialGradient(
+    cx - eyeOffsetX, eyeY, 0,
+    cx - eyeOffsetX, eyeY, catSize * 0.09
+  );
+  irisGrad.addColorStop(0, '#5a9e3e');
+  irisGrad.addColorStop(0.6, '#3a7e1e');
+  irisGrad.addColorStop(1, '#1a4e08');
+  ctx.fillStyle = irisGrad;
+  ctx.beginPath();
+  ctx.arc(cx - eyeOffsetX, eyeY, catSize * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Left pupil
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.ellipse(cx - eyeOffsetX, eyeY, catSize * 0.015, catSize * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Left highlight
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx - eyeOffsetX + catSize * 0.025, eyeY - catSize * 0.03, catSize * 0.018, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Right eye white
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(cx + eyeOffsetX, eyeY, catSize * 0.11, catSize * 0.14, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  
+  // Right iris
+  const irisGrad2 = ctx.createRadialGradient(
+    cx + eyeOffsetX, eyeY, 0,
+    cx + eyeOffsetX, eyeY, catSize * 0.09
+  );
+  irisGrad2.addColorStop(0, '#5a9e3e');
+  irisGrad2.addColorStop(0.6, '#3a7e1e');
+  irisGrad2.addColorStop(1, '#1a4e08');
+  ctx.fillStyle = irisGrad2;
+  ctx.beginPath();
+  ctx.arc(cx + eyeOffsetX, eyeY, catSize * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Right pupil
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.ellipse(cx + eyeOffsetX, eyeY, catSize * 0.015, catSize * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Right highlight
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx + eyeOffsetX + catSize * 0.025, eyeY - catSize * 0.03, catSize * 0.018, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Nose
+  ctx.fillStyle = '#e8a0a8';
+  ctx.beginPath();
+  ctx.moveTo(cx, catY + catSize * 0.08);
+  ctx.lineTo(cx - catSize * 0.05, catY + catSize * 0.16);
+  ctx.lineTo(cx + catSize * 0.05, catY + catSize * 0.16);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.2;
+  ctx.stroke();
+  
+  // Mouth
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.25;
+  ctx.beginPath();
+  ctx.moveTo(cx, catY + catSize * 0.16);
+  ctx.lineTo(cx, catY + catSize * 0.22);
+  ctx.moveTo(cx, catY + catSize * 0.22);
+  ctx.quadraticCurveTo(cx - catSize * 0.07, catY + catSize * 0.27, cx - catSize * 0.1, catY + catSize * 0.22);
+  ctx.moveTo(cx, catY + catSize * 0.22);
+  ctx.quadraticCurveTo(cx + catSize * 0.07, catY + catSize * 0.27, cx + catSize * 0.1, catY + catSize * 0.22);
+  ctx.stroke();
+  
+  // Whiskers
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.15;
+  for (let i = 0; i < 3; i++) {
+    const wy = catY + catSize * 0.12 + i * catSize * 0.04;
+    ctx.beginPath();
+    ctx.moveTo(cx - catSize * 0.12, wy);
+    ctx.quadraticCurveTo(cx - catSize * 0.3, wy - catSize * 0.01, cx - catSize * 0.45, wy - catSize * 0.03);
+    ctx.moveTo(cx + catSize * 0.12, wy);
+    ctx.quadraticCurveTo(cx + catSize * 0.3, wy - catSize * 0.01, cx + catSize * 0.45, wy - catSize * 0.03);
+    ctx.stroke();
+  }
+  
+  // Blush
+  ctx.fillStyle = 'rgba(232, 160, 168, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(cx - catSize * 0.25, catY + catSize * 0.12, catSize * 0.07, catSize * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + catSize * 0.25, catY + catSize * 0.12, catSize * 0.07, catSize * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+function drawSeal(ctx, cx, cy, radius, text, centerText, inkColor, bgColor) {
+  // Outer serrated edge
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  for (let i = 0; i < 80; i++) {
+    const angle = (i / 80) * Math.PI * 2;
+    const r = i % 2 === 0 ? radius : radius - 2;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  
+  // Inner circle
+  ctx.fillStyle = '#f0eed8';
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Text ring
+  ctx.fillStyle = inkColor;
+  ctx.font = 'bold 3.5px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  const textRadius = radius - 7;
+  for (let i = 0; i < text.length; i++) {
+    const angle = (i / text.length) * Math.PI * 2 - Math.PI / 2;
+    const x = cx + Math.cos(angle) * textRadius;
+    const y = cy + Math.sin(angle) * textRadius;
+    
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.fillText(text[i], 0, 0);
+    ctx.restore();
+  }
+  
+  // Center text
+  ctx.font = 'bold 9px Georgia, serif';
+  ctx.fillText(centerText, cx, cy);
+  
+  // Inner decorative elements
+  ctx.strokeStyle = inkColor;
+  ctx.lineWidth = 0.4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 10, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  // Star pattern
+  ctx.fillStyle = inkColor;
+  for (let i = 0; i < 12; i++) {
+    const angle = (i / 12) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * (radius - 12);
+    const y = cy + Math.sin(angle) * (radius - 12);
+    ctx.beginPath();
+    ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawIndependenceHall(ctx, cx, cy, scale, color) {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 0.4;
+  
+  const w = scale * 2;
+  const h = scale * 1.1;
+  
+  // Base/steps
+  ctx.fillStyle = '#e8e5cc';
+  ctx.fillRect(cx - w / 2, cy + h / 2 - 4, w, 4);
+  ctx.strokeRect(cx - w / 2, cy + h / 2 - 4, w, 4);
+  
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - w / 2 + i * 2, cy + h / 2 - 4 + i);
+    ctx.lineTo(cx + w / 2 - i * 2, cy + h / 2 - 4 + i);
+    ctx.stroke();
+  }
+  
+  // Main building body
+  ctx.fillStyle = '#e8e5cc';
+  ctx.fillRect(cx - w / 2 + 8, cy - h / 4, w - 16, h / 2 + h / 4 - 4);
+  ctx.strokeRect(cx - w / 2 + 8, cy - h / 4, w - 16, h / 2 + h / 4 - 4);
+  
+  // Central tower
+  const towerW = w * 0.28;
+  const towerH = h * 0.75;
+  ctx.fillStyle = '#e8e5cc';
+  ctx.fillRect(cx - towerW / 2, cy - h / 4 - towerH, towerW, towerH);
+  ctx.strokeRect(cx - towerW / 2, cy - h / 4 - towerH, towerW, towerH);
+  
+  // Tower roof
+  ctx.beginPath();
+  ctx.moveTo(cx - towerW / 2, cy - h / 4 - towerH);
+  ctx.lineTo(cx, cy - h / 4 - towerH - h * 0.35);
+  ctx.lineTo(cx + towerW / 2, cy - h / 4 - towerH);
+  ctx.closePath();
+  ctx.fillStyle = '#d4d0b8';
+  ctx.fill();
+  ctx.stroke();
+  
+  // Spire
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - h / 4 - towerH - h * 0.35);
+  ctx.lineTo(cx, cy - h / 4 - towerH - h * 0.55);
+  ctx.stroke();
+  
+  // Clock face
+  ctx.fillStyle = '#f5f3e8';
+  ctx.beginPath();
+  ctx.arc(cx, cy - h / 4 - towerH * 0.55, towerW * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  
+  // Clock hands
+  ctx.lineWidth = 0.25;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - h / 4 - towerH * 0.55);
+  ctx.lineTo(cx, cy - h / 4 - towerH * 0.55 - towerW * 0.09);
+  ctx.moveTo(cx, cy - h / 4 - towerH * 0.55);
+  ctx.lineTo(cx + towerW * 0.07, cy - h / 4 - towerH * 0.55);
+  ctx.stroke();
+  ctx.lineWidth = 0.4;
+  
+  // Clock numbers
+  ctx.font = '1.5px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('12', cx, cy - h / 4 - towerH * 0.55 - towerW * 0.1);
+  ctx.fillText('6', cx, cy - h / 4 - towerH * 0.55 + towerW * 0.12);
+  ctx.fillText('3', cx + towerW * 0.1, cy - h / 4 - towerH * 0.55);
+  ctx.fillText('9', cx - towerW * 0.1, cy - h / 4 - towerH * 0.55);
+  
+  // Columns
+  const numColumns = 8;
+  const columnSpacing = (w - 16) / numColumns;
+  for (let i = 0; i < numColumns; i++) {
+    const colX = cx - w / 2 + 8 + columnSpacing * (i + 0.5);
+    ctx.fillStyle = '#e8e5cc';
+    ctx.fillRect(colX - 0.8, cy - h / 4 + 3, 1.6, h / 2 + h / 4 - 7);
+    ctx.strokeRect(colX - 0.8, cy - h / 4 + 3, 1.6, h / 2 + h / 4 - 7);
+  }
+  
+  // Windows
+  for (let i = 0; i < 5; i++) {
+    const winX = cx - w / 2 + 12 + i * (w - 24) / 5;
+    ctx.fillStyle = '#c8c5a8';
+    ctx.fillRect(winX - 2.5, cy - h / 4 + 8, 5, 7);
+    ctx.strokeRect(winX - 2.5, cy - h / 4 + 8, 5, 7);
+    
+    // Window cross
+    ctx.beginPath();
+    ctx.moveTo(winX, cy - h / 4 + 8);
+    ctx.lineTo(winX, cy - h / 4 + 15);
+    ctx.moveTo(winX - 2.5, cy - h / 4 + 11.5);
+    ctx.lineTo(winX + 2.5, cy - h / 4 + 11.5);
+    ctx.stroke();
+  }
+  
+  // Door
+  ctx.fillStyle = '#c8c5a8';
+  ctx.fillRect(cx - 3.5, cy + h / 4 - 9, 7, 7);
+  ctx.strokeRect(cx - 3.5, cy + h / 4 - 9, 7, 7);
+  
+  // Door arch
+  ctx.beginPath();
+  ctx.arc(cx, cy + h / 4 - 9, 3.5, Math.PI, 0);
+  ctx.stroke();
+  
+  // Pediment
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2 + 8, cy - h / 4);
+  ctx.lineTo(cx, cy - h / 4 - h * 0.12);
+  ctx.lineTo(cx + w / 2 - 8, cy - h / 4);
+  ctx.closePath();
+  ctx.fillStyle = '#d4d0b8';
+  ctx.fill();
+  ctx.stroke();
+  
+  // Roof line
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2 + 8, cy - h / 4);
+  ctx.lineTo(cx + w / 2 - 8, cy - h / 4);
+  ctx.stroke();
+  
+  // Decorative elements on pediment
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy - h / 4 - h * 0.06, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawLathework(ctx, cx, cy, radius, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.2;
+  
+  for (let i = 0; i < 15; i++) {
+    ctx.beginPath();
+    const r = radius - i * 1.2;
+    for (let t = 0; t <= 1; t += 0.02) {
+      const angle = t * Math.PI * 2;
+      const wave = Math.sin(angle * 8 + i * 0.5) * 1;
+      const px = cx + Math.cos(angle) * (r + wave);
+      const py = cy + Math.sin(angle) * (r + wave);
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+}
+
+function createBumpMap() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2048;
+  canvas.height = 872;
+  const ctx = canvas.getContext('2d');
+  
+  // Mid-gray base
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Random noise
+  for (let i = 0; i < 80000; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const brightness = 100 + Math.random() * 80;
+    ctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+  
+  // Short line textures (paper fibers)
+  for (let i = 0; i < 20000; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const len = 2 + Math.random() * 5;
+    const angle = Math.random() * Math.PI;
+    const brightness = 80 + Math.random() * 80;
+    ctx.strokeStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  
+  // Border highlights
+  ctx.strokeStyle = '#c0c0c0';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+  
+  ctx.strokeStyle = '#a0a0a0';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(35, 35, canvas.width - 70, canvas.height - 70);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = 16;
+  return texture;
+}
+
+// ==================== CAMERA CONTROLLER ====================
+class CameraController {
+  constructor(camera) {
+    this.camera = camera;
+    this.theta = Math.PI / 4;
+    this.phi = Math.PI / 3.5;
+    this.radius = 7;
+    this.target = new THREE.Vector3(0, 0, 0);
+    
+    this.minPhi = 0.15;
+    this.maxPhi = Math.PI / 2 - 0.05;
+    this.minRadius = 3;
+    this.maxRadius = 15;
+    
+    this.keys = {};
+    this.rotateSpeed = 0.025;
+    this.zoomSpeed = 0.8;
+    
+    this.update();
+  }
+  
+  update() {
+    if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) this.theta -= this.rotateSpeed;
+    if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) this.theta += this.rotateSpeed;
+    if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) this.phi -= this.rotateSpeed;
+    if (this.keys['ArrowDown'] || this.keys['s'] || this.keys['S']) this.phi += this.rotateSpeed;
+    
+    this.phi = Math.max(this.minPhi, Math.min(this.maxPhi, this.phi));
+    
+    const x = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+    const y = this.radius * Math.cos(this.phi);
+    const z = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
+    
+    this.camera.position.set(x, y, z);
+    this.camera.lookAt(this.target);
+  }
+  
+  zoom(delta) {
+    this.radius += delta * this.zoomSpeed;
+    this.radius = Math.max(this.minRadius, Math.min(this.maxRadius, this.radius));
+  }
+  
+  onKeyDown(key) { this.keys[key] = true; }
+  onKeyUp(key) { this.keys[key] = false; }
+}
+
+// ==================== POST-PROCESSING SHADERS ====================
+const ChromaticAberrationShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    amount: { value: 0.0008 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float amount;
+    varying vec2 vUv;
+    void main() {
+      vec2 offset = (vUv - 0.5) * amount;
+      float r = texture2D(tDiffuse, vUv + offset).r;
+      float g = texture2D(tDiffuse, vUv).g;
+      float b = texture2D(tDiffuse, vUv - offset).b;
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  `
+};
+
+const VignetteShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    offset: { value: 1.0 },
+    darkness: { value: 0.8 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float offset;
+    uniform float darkness;
+    varying vec2 vUv;
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+      vec2 uv = (vUv - 0.5) * vec2(offset);
+      gl_FragColor = texel * 1.0 - dot(uv, uv) * darkness;
+    }
+  `
+};
+
+// ==================== MAIN INITIALIZATION ====================
+let scene, camera, renderer, composer;
+let physics, cameraController;
+let frontMesh, backMesh, frontGeometry, backGeometry;
+let frontPositionAttr, backPositionAttr;
+let raycaster, mouse;
+let isDragging = false;
+let windEnabled = false;
+let groundMesh;
+
+function init() {
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf5f3f0);
+  scene.fog = new THREE.Fog(0xf5f3f0, 15, 35);
+  
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  cameraController = new CameraController(camera);
+  
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+  
+  // Lights
+  const ambientLight = new THREE.HemisphereLight(0xfff5e6, 0xe6e0d3, 0.5);
+  scene.add(ambientLight);
+  
+  const mainLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+  mainLight.position.set(5, 12, 5);
+  mainLight.castShadow = true;
+  mainLight.shadow.mapSize.width = 2048;
+  mainLight.shadow.mapSize.height = 2048;
+  mainLight.shadow.camera.near = 0.5;
+  mainLight.shadow.camera.far = 30;
+  mainLight.shadow.camera.left = -8;
+  mainLight.shadow.camera.right = 8;
+  mainLight.shadow.camera.top = 8;
+  mainLight.shadow.camera.bottom = -8;
+  mainLight.shadow.bias = -0.0005;
+  scene.add(mainLight);
+  
+  const fillLight = new THREE.DirectionalLight(0xe6f0ff, 0.4);
+  fillLight.position.set(-5, 6, -5);
+  scene.add(fillLight);
+  
+  const edgeLight = new THREE.DirectionalLight(0xffffff, 0.3);
+  edgeLight.position.set(0, 4, -10);
+  scene.add(edgeLight);
+  
+  // Ground
+  const groundGeometry = new THREE.PlaneGeometry(50, 50);
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf5f3f0,
+    roughness: 0.95,
+    metalness: 0.0
+  });
+  groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
+  groundMesh.rotation.x = -Math.PI / 2;
+  groundMesh.receiveShadow = true;
+  scene.add(groundMesh);
+  
+  // Physics
+  physics = new BillPhysics(CONFIG.billWidth, CONFIG.billHeight, CONFIG.cols, CONFIG.rows);
+  
+  // Create geometry
+  const positions = physics.positions.slice();
+  frontPositionAttr = new THREE.BufferAttribute(positions, 3);
+  backPositionAttr = new THREE.BufferAttribute(positions.slice(), 3);
+  
+  const frontUVs = new Float32Array(CONFIG.cols * CONFIG.rows * 2);
+  const backUVs = new Float32Array(CONFIG.cols * CONFIG.rows * 2);
+  const indices = [];
+  
+  for (let j = 0; j < CONFIG.rows; j++) {
+    for (let i = 0; i < CONFIG.cols; i++) {
+      const vertexIdx = j * CONFIG.cols + i;
+      const uvIdx = vertexIdx * 2;
+      
+      const u = i / (CONFIG.cols - 1);
+      const v = j / (CONFIG.rows - 1);
+      
+      frontUVs[uvIdx] = u;
+      frontUVs[uvIdx + 1] = v;
+      
+      backUVs[uvIdx] = 1 - u; // Flip for back
+      backUVs[uvIdx + 1] = v;
+    }
+  }
+  
+  for (let j = 0; j < CONFIG.rows - 1; j++) {
+    for (let i = 0; i < CONFIG.cols - 1; i++) {
+      const a = j * CONFIG.cols + i;
+      const b = j * CONFIG.cols + i + 1;
+      const c = (j + 1) * CONFIG.cols + i;
+      const d = (j + 1) * CONFIG.cols + i + 1;
+      
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+    }
+  }
+  
+  frontGeometry = new THREE.BufferGeometry();
+  frontGeometry.setAttribute('position', frontPositionAttr);
+  frontGeometry.setAttribute('uv', new THREE.BufferAttribute(frontUVs, 2));
+  frontGeometry.setIndex(indices);
+  frontGeometry.computeVertexNormals();
+  
+  backGeometry = new THREE.BufferGeometry();
+  backGeometry.setAttribute('position', backPositionAttr);
+  backGeometry.setAttribute('uv', new THREE.BufferAttribute(backUVs, 2));
+  backGeometry.setIndex(indices.slice());
+  backGeometry.computeVertexNormals();
+  
+  // Textures
+  const frontTexture = createFrontTexture();
+  const backTexture = createBackTexture();
+  const bumpTexture = createBumpMap();
+  
+  // Materials
+  const frontMaterial = new THREE.MeshPhysicalMaterial({
+    map: frontTexture,
+    bumpMap: bumpTexture,
+    bumpScale: 0.003,
+    side: THREE.FrontSide,
+    roughness: 0.7,
+    metalness: 0.0,
+    clearcoat: 0.05,
+    clearcoatRoughness: 0.8
+  });
+  
+  const backMaterial = new THREE.MeshPhysicalMaterial({
+    map: backTexture,
+    bumpMap: bumpTexture,
+    bumpScale: 0.003,
+    side: THREE.BackSide,
+    roughness: 0.7,
+    metalness: 0.0,
+    clearcoat: 0.05,
+    clearcoatRoughness: 0.8
+  });
+  
+  // Meshes
+  frontMesh = new THREE.Mesh(frontGeometry, frontMaterial);
+  frontMesh.castShadow = true;
+  frontMesh.receiveShadow = true;
+  scene.add(frontMesh);
+  
+  backMesh = new THREE.Mesh(backGeometry, backMaterial);
+  backMesh.castShadow = true;
+  backMesh.receiveShadow = true;
+  scene.add(backMesh);
+  
+  // Post-processing
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.15, 0.4, 0.85
+  );
+  composer.addPass(bloomPass);
+  
+  const caPass = new ShaderPass(ChromaticAberrationShader);
+  composer.addPass(caPass);
+  
+  const vignettePass = new ShaderPass(VignetteShader);
+  composer.addPass(vignettePass);
+  
+  // Interaction
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+  
+  setupEventListeners();
+  
+  // Hide loading, show UI
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('ui').style.display = 'block';
+  document.getElementById('toolbar').style.display = 'block';
+  
+  animate();
+}
+
+function setupEventListeners() {
+  const canvas = renderer.domElement;
+  
+  // Pointer events for dragging
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointerleave', onPointerUp);
+  
+  // Keyboard for camera
+  window.addEventListener('keydown', (e) => {
+    cameraController.onKeyDown(e.key);
+  });
+  window.addEventListener('keyup', (e) => {
+    cameraController.onKeyUp(e.key);
+  });
+  
+  // Wheel for zoom
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    cameraController.zoom(e.deltaY * 0.01);
+  }, { passive: false });
+  
+  // Window resize
+  window.addEventListener('resize', onResize);
+  
+  // UI buttons
+  document.getElementById('wind-btn').addEventListener('click', toggleWind);
+  document.getElementById('reset-btn').addEventListener('click', resetBill);
+}
+
+function onPointerDown(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  
+  raycaster.setFromCamera(mouse, camera);
+  
+  // Try to intersect with the bill meshes first
+  const intersects = raycaster.intersectObjects([frontMesh, backMesh]);
+  
+  let intersectionPoint;
+  if (intersects.length > 0) {
+    intersectionPoint = intersects[0].point;
+  } else {
+    // Fall back to ground plane
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    intersectionPoint = new THREE.Vector3();
+    if (!raycaster.ray.intersectPlane(groundPlane, intersectionPoint)) return;
+  }
+  
+  // Get camera direction for drag plane
+  const cameraDir = new THREE.Vector3();
+  camera.getWorldDirection(cameraDir);
+  
+  if (physics.startDrag(intersectionPoint, cameraDir)) {
+    isDragging = true;
+    canvas.style.cursor = 'grabbing';
+  }
+}
+
+function onPointerMove(e) {
+  if (!isDragging) return;
+  
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  
+  raycaster.setFromCamera(mouse, camera);
+  
+  const intersectionPoint = new THREE.Vector3();
+  if (raycaster.ray.intersectPlane(physics.dragPlane, intersectionPoint)) {
+    physics.updateDrag(intersectionPoint);
+  }
+}
+
+function onPointerUp() {
+  if (isDragging) {
+    physics.endDrag();
+    isDragging = false;
+    renderer.domElement.style.cursor = 'pointer';
+  }
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function toggleWind() {
+  windEnabled = !windEnabled;
+  physics.setWindEnabled(windEnabled);
+  
+  const btn = document.getElementById('wind-btn');
+  if (windEnabled) {
+    btn.classList.add('active');
+  } else {
+    btn.classList.remove('active');
+  }
+}
+
+function resetBill() {
+  physics.reset();
+  windEnabled = false;
+  document.getElementById('wind-btn').classList.remove('active');
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // Update camera
+  cameraController.update();
+  
+  // Update physics
+  const dt = 1 / 60;
+  physics.update(dt, CONFIG.gravity, windEnabled);
+  
+  // Update mesh positions
+  // Copy physics positions to both geometries
+  frontPositionAttr.array.set(physics.positions);
+  frontPositionAttr.needsUpdate = true;
+  backPositionAttr.array.set(physics.positions);
+  backPositionAttr.needsUpdate = true;
+  
+  // Recompute normals
+  frontGeometry.computeVertexNormals();
+  backGeometry.computeVertexNormals();
+  
+  // Render
+  composer.render();
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
