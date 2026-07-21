@@ -114,6 +114,17 @@
   .mc-btn.green:hover { background:linear-gradient(#7ed957,#5cb52a); }
   #menu .foot { position:absolute; bottom:14px; font-size:11px; color:rgba(255,255,255,.5); letter-spacing:1px; }
 
+  /* 选波次 */
+  #wave-grid { display:grid; grid-template-columns:repeat(4, 96px); gap:14px; }
+  .wave-cell { pointer-events:auto; cursor:pointer; font-family:inherit;
+    font-size:22px; color:#fff; padding:18px 0; text-align:center;
+    background:rgba(0,0,0,.55); border:2px solid rgba(255,255,255,.3); border-radius:6px;
+    transition:all .15s; }
+  .wave-cell:hover { background:rgba(126,217,87,.25); border-color:#7ed957; transform:scale(1.06); }
+  .wave-cell small { display:block; font-size:11px; color:#ffd75e; margin-top:4px; }
+  .wave-cell.locked { opacity:.35; cursor:not-allowed; }
+  .wave-cell.locked:hover { transform:none; background:rgba(0,0,0,.55); border-color:rgba(255,255,255,.3); }
+
   /* 波次横幅 */
   #wave-banner { position:fixed; left:0; right:0; top:34%; z-index:40; text-align:center;
     pointer-events:none; opacity:0; }
@@ -190,8 +201,21 @@
     <div><span class="key">R</span> 换弹　<span class="key">1 ~ 7</span> / 滚轮 切换武器与方块</div>
     <div><span class="key">Esc</span> 暂停</div>
   </div>
-  <button class="mc-btn green" id="btn-start">开始游戏</button>
+  <div class="btn-row" style="margin-bottom:18px;">
+    <button class="mc-btn green" id="btn-start">开始游戏</button>
+    <button class="mc-btn" id="btn-wave-select">选择波次</button>
+  </div>
   <div class="foot">提示：子弹可以打穿泥土！小心苦力怕的爆炸会炸开地形 —— 也可以利用它们</div>
+</div>
+
+<!-- 选波次 -->
+<div id="wave-select" class="screen" style="display:none;">
+  <h1 style="font-size:36px; letter-spacing:5px; text-shadow:3px 3px 0 #3a5f2a; margin-bottom:24px;">选择起始波次</h1>
+  <div id="wave-grid"></div>
+  <div class="btn-row" style="margin-top:26px;">
+    <button class="mc-btn" id="btn-wave-back">返回</button>
+  </div>
+  <div class="foot" style="position:absolute; bottom:14px; font-size:11px; color:rgba(255,255,255,.5);">选定后将从该波次开始战役</div>
 </div>
 
 <!-- 暂停 -->

@@ -10,6 +10,7 @@ class Game {
     this.endless = false;
     this.pendingSpawn = [];   // 待生成敌人
     this.spawnTimer = 0;
+    this.waveCooldown = false; // 波次结束判定冷却，防止每帧重复触发
     this.dayTime = 0.3;       // 0~1 昼夜
     this.shakeIntensity = 0;
     this.shakeDecay = 0;
@@ -131,22 +132,41 @@ class Game {
     HOTBAR.forEach((slot, i) => {
       const div = document.createElement('div');
       div.className = 'slot';
-      div.innerHTML = `<span class="num">${i + 1}</span>`;
+
+      // 编号
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = i + 1;
+      div.appendChild(num);
+
+      // 图标
+      let iconEl;
       if (slot.type === 'weapon') {
-        const w = WEAPONS[slot.idx];
-        div.innerHTML += `<span style="font-size:20px">${['🔫','🔫','💥'][slot.idx]}</span><span class="label">${w.name}</span>`;
+        iconEl = this.makeWeaponIcon(WEAPONS[slot.idx]);
       } else {
-        const icon = makeBlockIcon(BLOCKS[slot.block], this.atlas.uvOf);
-        div.appendChild(icon);
-        div.innerHTML += `<span class="label">${BLOCKS[slot.block].name}</span>`;
+        iconEl = makeBlockIcon(BLOCKS[slot.block], this.atlas.uvOf);
       }
+      div.appendChild(iconEl);
+
+      // 名称标签
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = slot.type === 'weapon' ? WEAPONS[slot.idx].name : BLOCKS[slot.block].name;
+      div.appendChild(label);
+
       hotbarEl.appendChild(div);
     });
     this.updateHotbarUI();
 
     // 按钮
-    const start = () => { sfx.init(); sfx.resume(); sfx.uiClick(); this.startGame(); };
+    const start = () => { sfx.init(); sfx.resume(); sfx.uiClick(); this.startGame(1); };
     document.getElementById('btn-start').onclick = start;
+    document.getElementById('btn-wave-select').onclick = () => { sfx.init(); sfx.uiClick(); this.showWaveSelect(); };
+    document.getElementById('btn-wave-back').onclick = () => {
+      sfx.uiClick();
+      document.getElementById('wave-select').style.display = 'none';
+      document.getElementById('menu').style.display = 'flex';
+    };
     document.getElementById('btn-respawn').onclick = () => { sfx.uiClick(); this.respawn(); };
     document.getElementById('btn-resume').onclick = () => { sfx.uiClick(); this.resume(); };
     document.getElementById('btn-again').onclick = () => location.reload();
@@ -165,6 +185,47 @@ class Game {
     document.addEventListener('keydown', e => {
       if (e.code === 'Escape' && this.state === 'paused') this.resume();
     });
+  }
+
+  // 用 Canvas 画像素武器图标（替代 emoji，避免系统不显示）
+  makeWeaponIcon(weapon) {
+    const cv = document.createElement('canvas');
+    cv.width = 38; cv.height = 38;
+    const ctx = cv.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const metal = '#3d3d3d', dark = '#222', wood = '#6e4f26', accent = '#ffd75e';
+
+    if (weapon.key === 'rifle') {
+      // 枪身
+      ctx.fillStyle = metal; ctx.fillRect(6, 14, 24, 8);
+      // 枪管
+      ctx.fillStyle = dark; ctx.fillRect(28, 16, 8, 4);
+      // 弹匣
+      ctx.fillStyle = dark; ctx.fillRect(14, 22, 6, 10);
+      // 枪托
+      ctx.fillStyle = wood; ctx.fillRect(2, 15, 6, 6);
+      // 准星
+      ctx.fillStyle = accent; ctx.fillRect(16, 12, 2, 2);
+    } else if (weapon.key === 'pistol') {
+      // 套筒
+      ctx.fillStyle = metal; ctx.fillRect(10, 14, 20, 7);
+      // 枪管
+      ctx.fillStyle = dark; ctx.fillRect(28, 16, 6, 3);
+      // 握把
+      ctx.fillStyle = wood; ctx.fillRect(10, 21, 6, 12);
+      ctx.fillRect(16, 21, 4, 8);
+    } else {
+      // 双管
+      ctx.fillStyle = dark; ctx.fillRect(8, 12, 4, 16);
+      ctx.fillRect(14, 12, 4, 16);
+      // 枪身
+      ctx.fillStyle = wood; ctx.fillRect(6, 20, 14, 10);
+      // 枪口
+      ctx.fillStyle = metal; ctx.fillRect(8, 28, 4, 6);
+      ctx.fillRect(14, 28, 4, 6);
+    }
+    return cv;
   }
 
   updateHotbarUI() {
@@ -227,10 +288,33 @@ class Game {
     this.shakeDecay = decay;
   }
 
-  // ---------- 流程 ----------
-  startGame() {
+  // ---------- 选波次 ----------
+  showWaveSelect() {
     document.getElementById('menu').style.display = 'none';
+    const sel = document.getElementById('wave-select');
+    sel.style.display = 'flex';
+
+    const grid = document.getElementById('wave-grid');
+    grid.innerHTML = '';
+    const maxUnlocked = this.maxUnlockedWave || 1;
+    for (let w = 1; w <= CFG.TOTAL_WAVES; w++) {
+      const cell = document.createElement('div');
+      cell.className = 'wave-cell' + (w > maxUnlocked ? ' locked' : '');
+      const comp = waveComp(w);
+      cell.innerHTML = `${w}<small>${comp.length} 敌</small>`;
+      if (w <= maxUnlocked) {
+        cell.onclick = () => { sfx.uiClick(); this.startGame(w); };
+      }
+      grid.appendChild(cell);
+    }
+  }
+
+  // ---------- 流程 ----------
+  startGame(wave) {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('wave-select').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
+    this.wave = wave - 1;          // nextWave() 会 +1
     this.state = 'playing';
     this.renderer.domElement.requestPointerLock();
     this.nextWave();
@@ -255,6 +339,7 @@ class Game {
     this.enemies.forEach(e => e.remove());
     this.enemies = [];
     this.pendingSpawn = [];
+    this.waveCooldown = false;   // 重置波次冷却
     this.player.spawn();
     this.player.heal(CFG.MAX_HP);
     this.updateHUD();
@@ -422,16 +507,21 @@ class Game {
         if (e.removed) this.enemies.splice(i, 1);
       }
 
-      // 波次结束判定
-      if (this.pendingSpawn.length === 0 && this.enemies.filter(e => e.alive).length === 0 && !this.player.dead) {
+      // 波次结束判定（waveCooldown 防止每帧重复触发）
+      if (this.pendingSpawn.length === 0 && this.enemies.filter(e => e.alive).length === 0 && !this.player.dead && !this.waveCooldown) {
         if (!this.endless && this.wave >= CFG.TOTAL_WAVES) {
           this.onVictory();
         } else {
+          this.waveCooldown = true;   // 关键：立即上锁，防止下一帧再次进入
+          this.maxUnlockedWave = Math.max(this.maxUnlockedWave || 1, Math.min(this.wave + 1, CFG.TOTAL_WAVES));
           this.player.heal(25);
           this.toast('波次肃清！生命恢复 25 点');
           this.score += 200 * this.wave;
           this.updateHUD();
-          setTimeout(() => { if (this.state === 'playing') this.nextWave(); }, 2500);
+          setTimeout(() => {
+            this.waveCooldown = false;
+            if (this.state === 'playing') this.nextWave();
+          }, 2500);
         }
       }
 
