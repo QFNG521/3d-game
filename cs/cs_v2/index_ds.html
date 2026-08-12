@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D 打砖块 · 十关挑战</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0b0e17;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1200px;
+            max-height: 800px;
+            background: #121624;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        #game-canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 28px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, transparent 100%);
+            pointer-events: auto;
+            color: #fff;
+            font-weight: 600;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+        }
+        #top-bar .left,
+        #top-bar .right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        #top-bar .score-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 400;
+            margin-right: 4px;
+        }
+        #top-bar .value {
+            color: #f0e68c;
+            font-size: 20px;
+            min-width: 40px;
+        }
+        #top-bar .lives {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .life-heart {
+            font-size: 22px;
+            transition: all 0.3s;
+            color: #ff4757;
+        }
+        .life-heart.lost {
+            color: #2f3542;
+            transform: scale(0.8);
+        }
+        #level-display {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 6px 18px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 15px;
+            color: #a8c8ff;
+        }
+        #level-display span {
+            color: #fff;
+            font-weight: 700;
+        }
+        #zoom-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 13px;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 16px;
+            border-radius: 30px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            white-space: nowrap;
+        }
+        #message-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto;
+            transition: opacity 0.4s ease;
+        }
+        #message-center.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #message-center .title {
+            font-size: 52px;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+            margin-bottom: 8px;
+        }
+        #message-center .sub {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 20px;
+        }
+        #message-center .btn {
+            pointer-events: auto;
+            padding: 14px 48px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 60px;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 30px rgba(108, 92, 231, 0.4);
+            letter-spacing: 0.5px;
+        }
+        #message-center .btn:hover {
+            transform: scale(1.04);
+            box-shadow: 0 12px 40px rgba(108, 92, 231, 0.6);
+        }
+        #message-center .btn:active {
+            transform: scale(0.96);
+        }
+        #message-center .btn-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: none;
+            backdrop-filter: blur(4px);
+            margin-left: 12px;
+        }
+        #message-center .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+        #level-transition {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+        #level-transition.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #level-transition .big {
+            font-size: 72px;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 4px 40px rgba(0, 0, 0, 0.5);
+        }
+        #level-transition .sub {
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 8px;
+        }
+        #level-transition .progress-dots {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+        #level-transition .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: background 0.3s;
+        }
+        #level-transition .dot.active {
+            background: #f0e68c;
+            box-shadow: 0 0 16px rgba(240, 230, 140, 0.4);
+        }
+        #level-transition .dot.done {
+            background: rgba(240, 230, 140, 0.3);
+        }
+        @media (max-width: 700px) {
+            #top-bar {
+                padding: 12px 16px;
+                font-size: 13px;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+            #top-bar .left,
+            #top-bar .right {
+                gap: 12px;
+            }
+            #top-bar .value {
+                font-size: 16px;
+                min-width: 28px;
+            }
+            #level-display {
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+            #message-center .title {
+                font-size: 32px;
+            }
+            #message-center .sub {
+                font-size: 15px;
+            }
+            #message-center .btn {
+                padding: 10px 28px;
+                font-size: 15px;
+            }
+            #level-transition .big {
+                font-size: 44px;
+            }
+            #level-transition .sub {
+                font-size: 18px;
+            }
+            .life-heart {
+                font-size: 17px;
+            }
+            #zoom-hint {
+                font-size: 11px;
+                padding: 4px 12px;
+                bottom: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="game-canvas-container"></div>
+        <div id="zoom-hint">🖱️ 滚动缩放 · 双击重置视角</div>
+
+        <div id="ui-overlay">
+            <div id="top-bar">
+                <div class="left">
+                    <span id="level-display">🏆 第 <span id="level-num">1</span> 关</span>
+                    <span style="color:rgba(255,255,255,0.4);">|</span>
+                    <span><span class="score-label">💎</span> <span id="score-value" class="value">0</span></span>
+                </div>
+                <div class="right">
+                    <span class="lives" id="lives-container"></span>
+                </div>
+            </div>
+
+            <div id="message-center" class="hidden">
+                <div class="title" id="msg-title">🎮 准备开始</div>
+                <div class="sub" id="msg-sub">移动鼠标控制挡板，点击发射球</div>
+                <div>
+                    <button class="btn" id="msg-btn">开始游戏</button>
+                    <button class="btn btn-secondary" id="msg-btn-reset" style="display:none;">🔄 重来</button>
+                </div>
+            </div>
+
+            <div id="level-transition" class="hidden">
+                <div class="big" id="lt-title">第 1 关</div>
+                <div class="sub" id="lt-sub">入门 · 简单</div>
+                <div class="progress-dots" id="lt-dots"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ============================================================
+        // 配置（砖块更大、视角更远）
+        // ============================================================
+        const CONFIG = {
+            paddleWidth: 1.8,
+            paddleHeight: 0.2,
+            paddleDepth: 0.5,
+            ballRadius: 0.25,
+            brickWidth: 0.95,
+            brickHeight: 0.35,
+            brickDepth: 0.35,
+            brickGap: 0.08,
+            leftWall: -5.8,
+            rightWall: 5.8,
+            topWall: 6.0,
+            bottomWall: -4.6,
+            paddleY: -3.8,
+            ballStartY: -2.8,
+            baseSpeed: 3.4,
+            maxLives: 5,
+        };
+
+        // ============================================================
+        // 关卡定义
+        // ============================================================
+        const LEVELS = [{
+            rows: 3,
+            cols: 5,
+            speedMul: 0.85,
+            hpLevel: 0,
+            name: '入门',
+            desc: '新手热身'
+        }, {
+            rows: 4,
+            cols: 6,
+            speedMul: 0.92,
+            hpLevel: 0,
+            name: '简单',
+            desc: '小试牛刀'
+        }, {
+            rows: 4,
+            cols: 7,
+            speedMul: 1.0,
+            hpLevel: 0,
+            name: '轻松',
+            desc: '渐入佳境'
+        }, {
+            rows: 5,
+            cols: 7,
+            speedMul: 1.08,
+            hpLevel: 1,
+            name: '进阶',
+            desc: '略有挑战'
+        }, {
+            rows: 5,
+            cols: 8,
+            speedMul: 1.15,
+            hpLevel: 1,
+            name: '挑战',
+            desc: '需要专注'
+        }, {
+            rows: 6,
+            cols: 8,
+            speedMul: 1.22,
+            hpLevel: 1,
+            name: '困难',
+            desc: '考验技巧'
+        }, {
+            rows: 6,
+            cols: 9,
+            speedMul: 1.30,
+            hpLevel: 2,
+            name: '很难',
+            desc: '步步惊心'
+        }, {
+            rows: 7,
+            cols: 9,
+            speedMul: 1.38,
+            hpLevel: 2,
+            name: '专家',
+            desc: '高手过招'
+        }, {
+            rows: 7,
+            cols: 10,
+            speedMul: 1.46,
+            hpLevel: 2,
+            name: '大师',
+            desc: '极限挑战'
+        }, {
+            rows: 8,
+            cols: 10,
+            speedMul: 1.60,
+            hpLevel: 2,
+            name: '传说',
+            desc: '勇者无双'
+        }, ];
+
+        const COLOR_PALETTES = [
+            ['#ff6b6b', '#ee5a24', '#f0932b'],
+            ['#f9ca24', '#f6b93b', '#e58e26'],
+            ['#6ab04c', '#2ecc71', '#1abc9c'],
+            ['#22a6b3', '#7ed6df', '#0abde3'],
+            ['#4834d4', '#686de0', '#30336b'],
+            ['#be2edd', '#a29bfe', '#6c5ce7'],
+            ['#ff7979', '#eb4d4b', '#c0392b'],
+            ['#f0932b', '#f6b93b', '#f9ca24'],
+            ['#2ecc71', '#27ae60', '#1abc9c'],
+            ['#3498db', '#2980b9', '#2c3e50'],
+        ];
+
+        // ============================================================
+        // DOM 引用
+        // ============================================================
+        const container = document.getElementById('game-canvas-container');
+        const levelNumEl = document.getElementById('level-num');
+        const scoreValueEl = document.getElementById('score-value');
+        const livesContainer = document.getElementById('lives-container');
+        const msgCenter = document.getElementById('message-center');
+        const msgTitle = document.getElementById('msg-title');
+        const msgSub = document.getElementById('msg-sub');
+        const msgBtn = document.getElementById('msg-btn');
+        const msgBtnReset = document.getElementById('msg-btn-reset');
+        const levelTransition = document.getElementById('level-transition');
+        const ltTitle = document.getElementById('lt-title');
+        const ltSub = document.getElementById('lt-sub');
+        const ltDots = document.getElementById('lt-dots');
+
+        // ============================================================
+        // Three.js 场景（优化：相机初始位置拉远）
+        // ============================================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f1422);
+
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 30);
+        // 默认视角：拉远以显示完整砖块区域
+        camera.position.set(0, 3.5, 11);
+        camera.lookAt(0, 0.5, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.4;
+        container.appendChild(renderer.domElement);
+
+        function resize() {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', resize);
+
+        // ---- 光照 ----
+        const ambientLight = new THREE.AmbientLight(0x6080c0, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 2.2);
+        dirLight.position.set(5, 12, 8);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 25;
+        dirLight.shadow.camera.left = -10;
+        dirLight.shadow.camera.right = 10;
+        dirLight.shadow.camera.top = 10;
+        dirLight.shadow.camera.bottom = -10;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0x8888ff, 0.6);
+        fillLight.position.set(-4, 5, -6);
+        scene.add(fillLight);
+
+        const rimLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        rimLight.position.set(0, -2, 10);
+        scene.add(rimLight);
+
+        // ---- 地面 ----
+        const groundGeo = new THREE.PlaneGeometry(16, 12);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x1a1f2e,
+            roughness: 0.7,
+            metalness: 0.1,
+            transparent: true,
+            opacity: 0.5,
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.set(0, -4.9, 0);
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const gridHelper = new THREE.GridHelper(14, 20, 0x445588, 0x334466);
+        gridHelper.position.y = -4.85;
+        scene.add(gridHelper);
+
+        // ---- 边界线 ----
+        function createBorderLine(x1, y1, x2, y2, color = 0x6688aa) {
+            const pts = [new THREE.Vector3(x1, y1, 0), new THREE.Vector3(x2, y2, 0)];
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
+            return new THREE.Line(geo, mat);
+        }
+        scene.add(createBorderLine(CONFIG.leftWall, CONFIG.topWall, CONFIG.rightWall, CONFIG.topWall));
+        scene.add(createBorderLine(CONFIG.leftWall, CONFIG.bottomWall, CONFIG.rightWall, CONFIG.bottomWall));
+        scene.add(createBorderLine(CONFIG.leftWall, CONFIG.bottomWall, CONFIG.leftWall, CONFIG.topWall));
+        scene.add(createBorderLine(CONFIG.rightWall, CONFIG.bottomWall, CONFIG.rightWall, CONFIG.topWall));
+
+        // ---- 星星 ----
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 400;
+        const starPos = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount * 3; i++) {
+            starPos[i] = (Math.random() - 0.5) * 40;
+            if (i % 3 === 2) starPos[i] = (Math.random() - 0.5) * 20 - 2;
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starMat = new THREE.PointsMaterial({
+            color: 0x88bbff,
+            size: 0.05,
+            transparent: true,
+            opacity: 0.7,
+        });
+        const stars = new THREE.Points(starGeo, starMat);
+        scene.add(stars);
+
+        // ============================================================
+        // 游戏状态
+        // ============================================================
+        const state = {
+            score: 0,
+            lives: CONFIG.maxLives,
+            level: 0,
+            status: 'idle',
+            ballSpeed: CONFIG.baseSpeed,
+            ball: null,
+            paddle: null,
+            bricks: [],
+            brickMeshes: [],
+            velocity: { x: 0, y: 0 },
+            canLaunch: true,
+        };
+
+        // ============================================================
+        // 工具函数
+        // ============================================================
+        function createBrickMaterial(color, hp) {
+            const c = new THREE.Color(color);
+            const emissive = c.clone().multiplyScalar(0.3);
+            return new THREE.MeshStandardMaterial({
+                color: c,
+                emissive: emissive,
+                roughness: 0.3,
+                metalness: 0.2,
+                emissiveIntensity: 0.4 + (hp - 1) * 0.2,
+            });
+        }
+
+        function getHpColor(hp, palette) {
+            if (hp === 1) return palette[0];
+            if (hp === 2) return palette[1];
+            return palette[2] || palette[0];
+        }
+
+        // ============================================================
+        // 创建游戏对象
+        // ============================================================
+        function createPaddle() {
+            if (state.paddle) {
+                scene.remove(state.paddle);
+                state.paddle.geometry.dispose();
+                state.paddle.material.dispose();
+            }
+            const geo = new THREE.BoxGeometry(CONFIG.paddleWidth, CONFIG.paddleHeight, CONFIG.paddleDepth);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0x6c5ce7,
+                emissive: 0x3d2e8e,
+                emissiveIntensity: 0.4,
+                roughness: 0.2,
+                metalness: 0.6,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.position.set(0, CONFIG.paddleY, 0);
+            scene.add(mesh);
+            state.paddle = mesh;
+            return mesh;
+        }
+
+        function createBall() {
+            if (state.ball) {
+                scene.remove(state.ball);
+                state.ball.geometry.dispose();
+                state.ball.material.dispose();
+            }
+            const geo = new THREE.SphereGeometry(CONFIG.ballRadius, 32, 32);
+            const mat = new THREE.MeshStandardMaterial({
+                color: 0xffd93d,
+                emissive: 0xff6b00,
+                emissiveIntensity: 0.5,
+                roughness: 0.1,
+                metalness: 0.3,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.position.set(0, CONFIG.ballStartY, 0);
+            scene.add(mesh);
+            state.ball = mesh;
+            return mesh;
+        }
+
+        function createBricks(levelIndex) {
+            for (const m of state.brickMeshes) {
+                scene.remove(m);
+                m.geometry.dispose();
+                m.material.dispose();
+                if (m.userData.wireframe) {
+                    scene.remove(m.userData.wireframe);
+                    m.userData.wireframe.geometry.dispose();
+                    m.userData.wireframe.material.dispose();
+                }
+            }
+            state.brickMeshes = [];
+            state.bricks = [];
+
+            const lv = LEVELS[levelIndex];
+            const { rows, cols, hpLevel } = lv;
+            const palette = COLOR_PALETTES[levelIndex % COLOR_PALETTES.length];
+
+            const bw = CONFIG.brickWidth;
+            const bh = CONFIG.brickHeight;
+            const gap = CONFIG.brickGap;
+            const totalW = cols * (bw + gap) - gap;
+            const totalH = rows * (bh + gap) - gap;
+            const startX = -totalW / 2 + bw / 2;
+            const startY = CONFIG.topWall - 1.2 - totalH / 2 + bh / 2;
+
+            const hpMap = [];
+            for (let r = 0; r < rows; r++) {
+                const row = [];
+                for (let c = 0; c < cols; c++) {
+                    let hp = 1;
+                    if (hpLevel === 1) {
+                        if (Math.random() < 0.25) hp = 2;
+                    } else if (hpLevel === 2) {
+                        const rand = Math.random();
+                        if (rand < 0.35) hp = 2;
+                        else if (rand < 0.50) hp = 3;
+                    }
+                    if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
+                        if (hp === 1 && Math.random() < 0.3) hp = 2;
+                    }
+                    row.push(hp);
+                }
+                hpMap.push(row);
+            }
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const hp = hpMap[r][c];
+                    const x = startX + c * (bw + gap);
+                    const y = startY + r * (bh + gap);
+                    const color = getHpColor(hp, palette);
+
+                    const geo = new THREE.BoxGeometry(bw, bh, CONFIG.brickDepth);
+                    const mat = createBrickMaterial(color, hp);
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    mesh.position.set(x, y, 0);
+
+                    // 边框线
+                    const edges = new THREE.EdgesGeometry(geo);
+                    const lineMat = new THREE.LineBasicMaterial({
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.25,
+                    });
+                    const wireframe = new THREE.LineSegments(edges, lineMat);
+                    wireframe.position.copy(mesh.position);
+                    wireframe.rotation.copy(mesh.rotation);
+                    scene.add(wireframe);
+                    mesh.userData.wireframe = wireframe;
+
+                    scene.add(mesh);
+                    state.brickMeshes.push(mesh);
+                    state.bricks.push({
+                        mesh,
+                        hp,
+                        maxHp: hp,
+                        x,
+                        y,
+                        alive: true,
+                        row: r,
+                        col: c,
+                    });
+                }
+            }
+            return state.bricks.length;
+        }
+
+        // ============================================================
+        // 物理
+        // ============================================================
+        function resetBall(launch = false) {
+            const ball = state.ball;
+            if (!ball) return;
+            ball.position.set(0, CONFIG.ballStartY, 0);
+            if (launch) {
+                const angle = (Math.random() - 0.5) * 0.8;
+                const speed = state.ballSpeed;
+                state.velocity.x = Math.sin(angle) * speed * 0.6;
+                state.velocity.y = Math.cos(angle) * speed;
+                state.status = 'playing';
+            } else {
+                state.velocity.x = 0;
+                state.velocity.y = 0;
+                state.status = 'idle';
+            }
+        }
+
+        function launchBall() {
+            if (state.status === 'idle' && state.ball) {
+                resetBall(true);
+                hideMessage();
+            }
+        }
+
+        function updatePhysics(delta) {
+            if (state.status !== 'playing') return;
+            const ball = state.ball;
+            if (!ball) return;
+            const dt = Math.min(delta, 0.033);
+            ball.position.x += state.velocity.x * dt;
+            ball.position.y += state.velocity.y * dt;
+
+            const r = CONFIG.ballRadius;
+            if (ball.position.x - r < CONFIG.leftWall) {
+                ball.position.x = CONFIG.leftWall + r;
+                state.velocity.x = Math.abs(state.velocity.x);
+            } else if (ball.position.x + r > CONFIG.rightWall) {
+                ball.position.x = CONFIG.rightWall - r;
+                state.velocity.x = -Math.abs(state.velocity.x);
+            }
+            if (ball.position.y + r > CONFIG.topWall) {
+                ball.position.y = CONFIG.topWall - r;
+                state.velocity.y = -Math.abs(state.velocity.y);
+            }
+            if (ball.position.y - r < CONFIG.bottomWall) {
+                loseLife();
+                return;
+            }
+
+            const paddle = state.paddle;
+            if (paddle) {
+                const px = paddle.position.x;
+                const py = paddle.position.y;
+                const pw = CONFIG.paddleWidth / 2;
+                const ph = CONFIG.paddleHeight / 2;
+                if (state.velocity.y < 0 &&
+                    ball.position.x > px - pw - r &&
+                    ball.position.x < px + pw + r &&
+                    ball.position.y > py - ph - r &&
+                    ball.position.y < py + ph + r) {
+                    const hitPos = (ball.position.x - px) / (pw + r);
+                    const angle = hitPos * 0.9;
+                    const speed = Math.sqrt(state.velocity.x * state.velocity.x + state.velocity.y * state.velocity.y);
+                    const newSpeed = Math.min(speed * 1.005, state.ballSpeed * 1.6);
+                    state.velocity.x = Math.sin(angle) * newSpeed;
+                    state.velocity.y = Math.cos(angle) * newSpeed;
+                    if (state.velocity.y < 0.3) state.velocity.y = 0.3;
+                    ball.position.y = py + ph + r + 0.01;
+                    paddle.material.emissiveIntensity = 0.8;
+                    setTimeout(() => { if (paddle.material) paddle.material.emissiveIntensity = 0.4; }, 100);
+                }
+            }
+
+            for (const brick of state.bricks) {
+                if (!brick.alive) continue;
+                const m = brick.mesh;
+                const bx = m.position.x;
+                const by = m.position.y;
+                const bw = CONFIG.brickWidth / 2;
+                const bh = CONFIG.brickHeight / 2;
+                const cx = ball.position.x;
+                const cy = ball.position.y;
+                const closestX = Math.max(bx - bw, Math.min(cx, bx + bw));
+                const closestY = Math.max(by - bh, Math.min(cy, by + bh));
+                const dx = cx - closestX;
+                const dy = cy - closestY;
+                if (Math.sqrt(dx * dx + dy * dy) < r) {
+                    const overlapX = bw + r - Math.abs(cx - bx);
+                    const overlapY = bh + r - Math.abs(cy - by);
+                    if (overlapX < overlapY) {
+                        state.velocity.x = -state.velocity.x;
+                        ball.position.x += (cx > bx ? 1 : -1) * (overlapX + 0.01);
+                    } else {
+                        state.velocity.y = -state.velocity.y;
+                        ball.position.y += (cy > by ? 1 : -1) * (overlapY + 0.01);
+                    }
+                    brick.hp--;
+                    if (brick.hp <= 0) {
+                        brick.alive = false;
+                        m.visible = false;
+                        if (m.userData.wireframe) m.userData.wireframe.visible = false;
+                        state.score += 10 + (brick.maxHp - 1) * 5;
+                        updateUI();
+                        const remaining = state.bricks.filter(b => b.alive);
+                        if (remaining.length === 0) {
+                            state.status = 'levelComplete';
+                            showLevelComplete();
+                        }
+                    } else {
+                        const palette = COLOR_PALETTES[state.level % COLOR_PALETTES.length];
+                        const color = getHpColor(brick.hp, palette);
+                        m.material.color.set(color);
+                        m.material.emissive.set(color).multiplyScalar(0.3);
+                        m.material.emissiveIntensity = 0.8;
+                        setTimeout(() => {
+                            if (m.material) m.material.emissiveIntensity = 0.4 + (brick.hp - 1) * 0.2;
+                        }, 80);
+                    }
+                    break;
+                }
+            }
+
+            const currentSpeed = Math.sqrt(state.velocity.x * state.velocity.x + state.velocity.y * state.velocity.y);
+            const maxSpeed = state.ballSpeed * 1.8;
+            if (currentSpeed > maxSpeed) {
+                state.velocity.x = (state.velocity.x / currentSpeed) * maxSpeed;
+                state.velocity.y = (state.velocity.y / currentSpeed) * maxSpeed;
+            }
+            if (Math.abs(state.velocity.y) < 0.5) {
+                state.velocity.y = state.velocity.y > 0 ? 0.5 : -0.5;
+            }
+        }
+
+        // ============================================================
+        // 游戏流程
+        // ============================================================
+        function loseLife() {
+            state.lives--;
+            updateUI();
+            if (state.lives <= 0) {
+                state.status = 'gameOver';
+                showGameOver();
+            } else {
+                resetBall(false);
+                state.status = 'idle';
+                showMessage('💔 丢球了', `剩余 ${state.lives} 条命`, '继续', () => launchBall());
+            }
+        }
+
+        function loadLevel(index) {
+            state.level = index;
+            const lv = LEVELS[index];
+            state.ballSpeed = CONFIG.baseSpeed * lv.speedMul;
+
+            levelNumEl.textContent = index + 1;
+            updateUI();
+
+            createPaddle();
+            createBall();
+            const brickCount = createBricks(index);
+
+            resetBall(false);
+            hideMessage();
+            hideLevelTransition();
+            showLevelTransition(index, brickCount);
+
+            state.status = 'idle';
+            state.canLaunch = true;
+            updateDots(index);
+        }
+
+        function nextLevel() {
+            const next = state.level + 1;
+            if (next >= LEVELS.length) {
+                state.status = 'gameOver';
+                showMessage('🎉 恭喜通关！', '你已征服所有关卡，真正的勇者！', '🔄 再来一次', () => resetGame());
+                return;
+            }
+            loadLevel(next);
+        }
+
+        function resetGame() {
+            state.score = 0;
+            state.lives = CONFIG.maxLives;
+            loadLevel(0);
+            updateUI();
+            hideMessage();
+        }
+
+        // ============================================================
+        // UI 更新
+        // ============================================================
+        function updateUI() {
+            scoreValueEl.textContent = state.score;
+            let html = '';
+            for (let i = 0; i < CONFIG.maxLives; i++) {
+                const lost = i >= state.lives ? 'lost' : '';
+                html += `<span class="life-heart ${lost}">❤️</span>`;
+            }
+            livesContainer.innerHTML = html;
+        }
+
+        function updateDots(currentLevel) {
+            let html = '';
+            for (let i = 0; i < LEVELS.length; i++) {
+                let cls = 'dot';
+                if (i === currentLevel) cls += ' active';
+                else if (i < currentLevel) cls += ' done';
+                html += `<span class="${cls}"></span>`;
+            }
+            ltDots.innerHTML = html;
+        }
+
+        // ============================================================
+        // 消息系统
+        // ============================================================
+        function showMessage(title, sub, btnText, onAction) {
+            msgCenter.classList.remove('hidden');
+            msgTitle.textContent = title;
+            msgSub.textContent = sub || '';
+            msgBtn.textContent = btnText || '确定';
+            msgBtn.style.display = 'inline-block';
+            msgBtnReset.style.display = 'none';
+            const newBtn = msgBtn.cloneNode(true);
+            msgBtn.parentNode.replaceChild(newBtn, msgBtn);
+            newBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (onAction) onAction();
+            });
+            msgBtnReset.style.display = 'none';
+        }
+
+        function hideMessage() {
+            msgCenter.classList.add('hidden');
+        }
+
+        function showLevelTransition(index, brickCount) {
+            const lv = LEVELS[index];
+            ltTitle.textContent = `第 ${index + 1} 关`;
+            ltSub.textContent = `${lv.name} · ${lv.desc}  (${brickCount}块砖)`;
+            levelTransition.classList.remove('hidden');
+            updateDots(index);
+            clearTimeout(window._ltTimer);
+            window._ltTimer = setTimeout(() => {
+                hideLevelTransition();
+                if (state.status === 'idle') {
+                    showMessage('🎯 准备发射', '移动鼠标瞄准，点击发射', '🚀 发射', () => launchBall());
+                }
+            }, 1500);
+        }
+
+        function hideLevelTransition() {
+            levelTransition.classList.add('hidden');
+        }
+
+        function showLevelComplete() {
+            const next = state.level + 1;
+            if (next >= LEVELS.length) {
+                showMessage('🎉 通关！', '你已击败所有关卡！', '🔄 再来一次', () => resetGame());
+            } else {
+                showMessage('✨ 过关！', `准备进入第 ${next + 1} 关`, '▶ 下一关', () => nextLevel());
+            }
+        }
+
+        function showGameOver() {
+            showMessage('💀 游戏结束', `得分: ${state.score}  ·  到达第 ${state.level + 1} 关`, '🔄 重新开始', () => resetGame());
+        }
+
+        // ============================================================
+        // 鼠标/触摸/键盘控制 + 缩放
+        // ============================================================
+        let mouseX = 0;
+
+        function handlePointerMove(x) {
+            const rect = container.getBoundingClientRect();
+            const relativeX = (x - rect.left) / rect.width;
+            const worldX = CONFIG.leftWall + relativeX * (CONFIG.rightWall - CONFIG.leftWall);
+            const clamped = Math.max(CONFIG.leftWall + CONFIG.paddleWidth / 2, Math.min(CONFIG.rightWall - CONFIG
+                .paddleWidth / 2, worldX));
+            if (state.paddle) {
+                state.paddle.position.x = clamped;
+            }
+            if (state.status === 'idle' && state.ball) {
+                state.ball.position.x = clamped;
+            }
+        }
+
+        // ---- 滚轮缩放 ----
+        let targetDistance = 11; // 初始距离
+        const minDistance = 5;
+        const maxDistance = 18;
+
+        function updateCameraDistance() {
+            const dir = new THREE.Vector3(0, 0, 1);
+            // 相机看向原点偏移 (0, 0.5, 0)
+            const lookAt = new THREE.Vector3(0, 0.5, 0);
+            const offset = dir.multiplyScalar(targetDistance);
+            camera.position.copy(lookAt.clone().add(offset));
+            camera.lookAt(lookAt);
+        }
+
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.6 : -0.6;
+            targetDistance = Math.min(maxDistance, Math.max(minDistance, targetDistance + delta));
+            updateCameraDistance();
+        }, { passive: false });
+
+        // 双击重置视角
+        container.addEventListener('dblclick', () => {
+            targetDistance = 11;
+            updateCameraDistance();
+        });
+
+        // 初始设置
+        updateCameraDistance();
+
+        // ---- 鼠标移动 ----
+        container.addEventListener('mousemove', (e) => handlePointerMove(e.clientX));
+        container.addEventListener('click', (e) => {
+            if (state.status === 'idle' && state.canLaunch) {
+                launchBall();
+                state.canLaunch = false;
+                setTimeout(() => { state.canLaunch = true; }, 300);
+            }
+        });
+
+        container.addEventListener('touchstart', (e) => {
+            const touch = e.changedTouches[0];
+            if (touch) {
+                handlePointerMove(touch.clientX);
+                if (state.status === 'idle' && state.canLaunch) {
+                    launchBall();
+                    state.canLaunch = false;
+                    setTimeout(() => { state.canLaunch = true; }, 300);
+                }
+            }
+        }, { passive: true });
+
+        container.addEventListener('touchmove', (e) => {
+            const touch = e.changedTouches[0];
+            if (touch) handlePointerMove(touch.clientX);
+        }, { passive: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') {
+                const step = 0.18;
+                if (state.paddle) {
+                    state.paddle.position.x = Math.max(CONFIG.leftWall + CONFIG.paddleWidth / 2, state.paddle.position.x -
+                        step);
+                    if (state.status === 'idle' && state.ball) state.ball.position.x = state.paddle.position.x;
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                const step = 0.18;
+                if (state.paddle) {
+                    state.paddle.position.x = Math.min(CONFIG.rightWall - CONFIG.paddleWidth / 2, state.paddle.position.x +
+                        step);
+                    if (state.status === 'idle' && state.ball) state.ball.position.x = state.paddle.position.x;
+                }
+                e.preventDefault();
+            } else if (e.key === ' ' || e.key === 'Enter') {
+                if (state.status === 'idle' && state.canLaunch) {
+                    launchBall();
+                    state.canLaunch = false;
+                    setTimeout(() => { state.canLaunch = true; }, 300);
+                }
+                e.preventDefault();
+            } else if (e.key === 'r' || e.key === 'R') {
+                if (state.status === 'gameOver') resetGame();
+                e.preventDefault();
+            }
+        });
+
+        // ============================================================
+        // 游戏循环
+        // ============================================================
+        let lastTime = 0;
+
+        function animate(time) {
+            const delta = lastTime ? (time - lastTime) / 1000 : 0.016;
+            lastTime = time;
+
+            updatePhysics(delta);
+
+            if (state.ball) {
+                state.ball.rotation.x += delta * 2;
+                state.ball.rotation.y += delta * 1.5;
+            }
+
+            const breathe = Math.sin(time * 0.001) * 0.003;
+            for (let i = 0; i < state.brickMeshes.length; i++) {
+                const m = state.brickMeshes[i];
+                if (m.visible) {
+                    const brick = state.bricks[i];
+                    if (brick && brick.alive) {
+                        const offset = (brick.row + brick.col) * 0.02;
+                        m.position.z = Math.sin(time * 0.0015 + offset) * 0.015;
+                        if (m.userData.wireframe) {
+                            m.userData.wireframe.position.z = m.position.z;
+                        }
+                    }
+                }
+            }
+
+            stars.rotation.y += delta * 0.01;
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        // ============================================================
+        // 初始化
+        // ============================================================
+        function init() {
+            loadLevel(0);
+            updateUI();
+            showMessage('🎮 3D 打砖块', '移动鼠标控制挡板 · 点击发射小球', '🚀 开始', () => launchBall());
+            animate(0);
+        }
+
+        window.debug = { scene, camera, renderer, state, resetGame, loadLevel, nextLevel };
+
+        const resizeObserver = new ResizeObserver(() => resize());
+        resizeObserver.observe(container);
+
+        init();
+        console.log('🎮 3D打砖块已加载（支持滚轮缩放·双击重置）');
+    </script>
+</body>
+</html>
