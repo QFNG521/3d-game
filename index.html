@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>项目导航 · 3d-game</title>
+<style>
+  :root {
+    --bg: #0b0e17;
+    --bg-card: rgba(255, 255, 255, 0.045);
+    --bg-card-hover: rgba(255, 255, 255, 0.09);
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #e8ecf4;
+    --text-dim: #8a93a8;
+    --accent: #5eead4;
+    --accent-2: #818cf8;
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse 60% 40% at 15% -10%, rgba(129, 140, 248, 0.16), transparent),
+      radial-gradient(ellipse 50% 35% at 90% 0%, rgba(94, 234, 212, 0.1), transparent);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 48px 24px 64px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header { margin-bottom: 36px; }
+  .title-row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 30px; font-weight: 700; letter-spacing: 0.5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .repo-tag {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 3px 12px;
+  }
+  .repo-tag a { color: var(--text-dim); text-decoration: none; }
+  .repo-tag a:hover { color: var(--accent); }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    margin-top: 18px;
+  }
+  #search {
+    flex: 1; min-width: 220px; max-width: 360px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    color: var(--text); font-size: 14px; outline: none;
+    transition: border-color 0.2s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--text-dim); }
+  #status {
+    font-size: 13px; color: var(--text-dim);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dim); flex: none;
+  }
+  .dot.ok { background: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.6); }
+  .dot.warn { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+  .dot.loading { background: var(--accent-2); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+  }
+  .card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(94, 234, 212, 0.35);
+    transform: translateY(-3px);
+  }
+  .card-head h2 { font-size: 17px; font-weight: 650; margin-bottom: 4px; }
+  .card-head .dir {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--text-dim);
+  }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+  .btn {
+    display: inline-block; padding: 8px 16px;
+    border-radius: 9px; font-size: 13.5px; text-decoration: none;
+    border: 1px solid var(--border); color: var(--text);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.15s ease;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: linear-gradient(90deg, rgba(94, 234, 212, 0.15), rgba(129, 140, 248, 0.15));
+    border-color: rgba(94, 234, 212, 0.4);
+  }
+  .btn.primary:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 14px rgba(94, 234, 212, 0.25);
+  }
+
+  .empty { color: var(--text-dim); padding: 40px 0; text-align: center; grid-column: 1 / -1; }
+
+  footer {
+    margin-top: 48px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--text-dim); line-height: 1.8;
+  }
+  footer code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: rgba(255, 255, 255, 0.07); padding: 1px 6px; border-radius: 5px;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title-row">
+      <h1>项目导航</h1>
+      <span class="repo-tag"><a href="https://github.com/QFNG521/3d-game" target="_blank" rel="noopener">QFNG521 / 3d-game</a></span>
+    </div>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="搜索项目…">
+      <span id="status"><span class="dot loading"></span>正在同步仓库…</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="grid"><div class="empty">加载中…</div></div>
+  </main>
+
+  <footer>
+    新项目添加方式：在仓库根目录下新建一个文件夹，放入项目文件，并确保入口页面命名为
+    <code>index.html</code>，推送到 GitHub 后刷新本页即可自动出现。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var REPO = 'QFNG521/3d-game';
+  var API = 'https://api.github.com/repos/' + REPO;
+  // 忽略的目录（构建产物 / 依赖 / 隐藏目录）
+  var SKIP_DIRS = ['node_modules', 'dist', 'build', 'out', '.git', '.github'];
+
+  // 离线兜底快照（API 不可用时展示，生成于 2026-08-13）
+  var FALLBACK = [
+    { dir: 'booking',           entries: ['booking/index.html'] },
+    { dir: 'catch_cat-main',    entries: ['catch_cat-main/index.html'] },
+    { dir: 'city',              entries: ['city/index.html'] },
+    { dir: 'cs',                entries: ['cs/cs_v1/index.html', 'cs/cs_v2/index.html', 'cs/cs_v3/index.html', 'cs/cs_v4/index.html'] },
+    { dir: 'Fighting',          entries: ['Fighting/index.html'] },
+    { dir: 'keyboard',          entries: ['keyboard/index.html'] },
+    { dir: 'minesweeper',       entries: ['minesweeper/index.html'] },
+    { dir: 'money',             entries: ['money/index.html'] },
+    { dir: 'motionsites',       entries: ['motionsites/3dStory/index.html'] },
+    { dir: 'note',              entries: ['note/v1/index.html', 'note/v2/index.html'] },
+    { dir: 'store',             entries: ['store/index.html'] },
+    { dir: 'tank-battle-main',  entries: ['tank-battle-main/index.html'] }
+  ];
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // "catch_cat-main" -> "Catch Cat"，"3dStory" -> "3D Story"
+  function pretty(name) {
+    var spaced = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[-_]+/g, ' ').trim();
+    return spaced.split(/\s+/).map(function (w) {
+      if (!w) return w;
+      // 短缩写（cs / v1 / 3d 等）全大写，其余首字母大写
+      if (w.length <= 2 || /^(cs|js|3d|html?|ui|api)$/i.test(w)) return w.toUpperCase();
+      return w[0].toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
+  }
+
+  function projectName(dir) {
+    return pretty(dir.replace(/[-_]main$/i, ''));
+  }
+
+  function isSkipped(path) {
+    return path.split('/').some(function (seg) {
+      return SKIP_DIRS.indexOf(seg) !== -1 || seg.charAt(0) === '.';
+    });
+  }
+
+  // 把 index.html 路径列表整理成项目卡片数据
+  function buildProjects(indexPaths, rootHtmls) {
+    var groups = {};
+    indexPaths.forEach(function (p) {
+      if (p === 'index.html' || isSkipped(p)) return;
+      var top = p.split('/')[0];
+      (groups[top] = groups[top] || []).push(p);
+    });
+
+    var projects = Object.keys(groups).map(function (dir) {
+      var entries = groups[dir];
+      // 优先使用非构建产物入口；若只有构建产物则保留
+      var clean = entries.filter(function (p) {
+        return !/(^|\/)(dist|build|out)\//.test(p);
+      });
+      var list = (clean.length ? clean : entries).slice().sort();
+      return {
+        dir: dir,
+        name: projectName(dir),
+        entries: list.map(function (p) {
+          var rel = p.slice(dir.length + 1, p.length - '/index.html'.length);
+          return {
+            href: p,
+            main: rel === '',
+            label: rel === '' ? '进入项目' : pretty(rel.split('/').pop())
+          };
+        })
+      };
+    });
+
+    // 根目录下的独立 html 页面（index.html 除外）
+    rootHtmls.forEach(function (p) {
+      if (isSkipped(p)) return;
+      var base = p.replace(/\.html$/, '');
+      projects.push({
+        dir: p,
+        name: pretty(base),
+        entries: [{ href: p, main: true, label: '进入项目' }]
+      });
+    });
+
+    return projects.sort(function (a, b) {
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+  }
+
+  function setStatus(type, text) {
+    var el = document.getElementById('status');
+    el.innerHTML = '<span class="dot ' + type + '"></span>' + esc(text);
+  }
+
+  function render(projects) {
+    var grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    if (!projects.length) {
+      grid.innerHTML = '<div class="empty">还没有发现项目</div>';
+      return;
+    }
+    projects.forEach(function (proj) {
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.search = (proj.name + ' ' + proj.dir).toLowerCase();
+
+      var btns = proj.entries.map(function (e) {
+        var cls = 'btn' + (e.main && proj.entries.length === 1 ? ' primary' : '');
+        return '<a class="' + cls + '" href="' + esc(e.href) + '">' + esc(e.label) + '</a>';
+      }).join('');
+
+      card.innerHTML =
+        '<div class="card-head"><h2>' + esc(proj.name) + '</h2>' +
+        '<span class="dir">' + esc(proj.dir) + '</span></div>' +
+        '<div class="btns">' + btns + '</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  function applyFilter() {
+    var q = document.getElementById('search').value.trim().toLowerCase();
+    var visible = 0;
+    document.querySelectorAll('#grid .card').forEach(function (card) {
+      var hit = !q || card.dataset.search.indexOf(q) !== -1;
+      card.style.display = hit ? '' : 'none';
+      if (hit) visible++;
+    });
+    var empty = document.querySelector('#grid .empty');
+    if (empty) empty.remove();
+    if (!visible && q) {
+      var div = document.createElement('div');
+      div.className = 'empty';
+      div.textContent = '没有匹配「' + q + '」的项目';
+      document.getElementById('grid').appendChild(div);
+    }
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  async function load() {
+    try {
+      var meta = await (await fetch(API, { headers: { 'Accept': 'application/vnd.github+json' } })).json();
+      var branch = meta.default_branch || 'main';
+      var treeRes = await fetch(API + '/git/trees/' + encodeURIComponent(branch) + '?recursive=1', {
+        headers: { 'Accept': 'application/vnd.github+json' }
+      });
+      if (!treeRes.ok) throw new Error('tree ' + treeRes.status);
+      var tree = (await treeRes.json()).tree || [];
+
+      var indexPaths = [];
+      var rootHtmls = [];
+      tree.forEach(function (t) {
+        if (t.type !== 'blob') return;
+        if (/\.html$/.test(t.path) && t.path.indexOf('/') === -1 && t.path !== 'index.html') {
+          rootHtmls.push(t.path);
+        }
+        if (/(^|\/)index\.html$/.test(t.path)) indexPaths.push(t.path);
+      });
+
+      render(buildProjects(indexPaths, rootHtmls));
+      applyFilter();
+      setStatus('ok', '已同步 GitHub · 共 ' + document.querySelectorAll('#grid .card').length +
+        ' 个项目 · 最近更新 ' + fmtDate(meta.pushed_at));
+    } catch (err) {
+      render(buildProjects(
+        FALLBACK.reduce(function (acc, g) { return acc.concat(g.entries); }, []),
+        []
+      ));
+      applyFilter();
+      setStatus('warn', '无法连接 GitHub API，展示缓存列表（' + FALLBACK.length + ' 个项目）');
+    }
+  }
+
+  document.getElementById('search').addEventListener('input', applyFilter);
+  load();
+})();
+</script>
+</body>
+</html>
