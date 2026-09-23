@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>《下班潜行》· 准时下班不被上司发现</title>
+<style>
+  :root{
+    --gold:#ffcf7a; --danger:#ff5d5d; --ok:#5fe0a8; --ink:#0b0f16;
+    --panel: rgba(14,19,28,.72);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#080b11;
+    font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',system-ui,sans-serif;
+    color:#e8eef6; user-select:none;}
+  canvas{display:block;position:absolute;inset:0;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:10;}
+  .panel{background:var(--panel);backdrop-filter:blur(14px) saturate(130%);
+    -webkit-backdrop-filter:blur(14px) saturate(130%);
+    border:1px solid rgba(255,255,255,.10); border-radius:14px;
+    box-shadow:0 10px 34px rgba(0,0,0,.5);}
+
+  .tl{position:absolute;top:16px;left:16px;padding:12px 18px;min-width:186px;}
+  .tl .lbl{font-size:.66rem;letter-spacing:2.4px;color:#8ea0b6;}
+  .tl .val{font-size:2.05rem;font-weight:800;letter-spacing:1px;line-height:1.12;
+    font-variant-numeric:tabular-nums;color:var(--gold);text-shadow:0 0 18px rgba(255,207,122,.32);}
+  .tl .val.warn{color:var(--danger);text-shadow:0 0 20px rgba(255,93,93,.45);}
+  .tl .bar{height:4px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:8px;overflow:hidden;}
+  .tl .bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ffcf7a,#ff9a4d);
+    transition:width .2s linear;}
+  .tl .bar.low i{background:linear-gradient(90deg,#ff8f6b,#ff4d4d);}
+
+  .tr{position:absolute;top:16px;right:16px;padding:11px 16px;min-width:190px;}
+  .tr .lbl{font-size:.66rem;letter-spacing:2.4px;color:#8ea0b6;}
+  .tr .bar{height:8px;border-radius:5px;background:rgba(255,255,255,.11);margin-top:8px;overflow:hidden;}
+  .tr .bar i{display:block;height:100%;width:0%;border-radius:5px;
+    background:linear-gradient(90deg,#ffd88a,#ff8a3d);transition:width .08s linear,background .2s;}
+  .tr .st{margin-top:8px;font-size:.8rem;font-weight:700;letter-spacing:1.5px;color:var(--ok);}
+  .tr .st.s1{color:#ffd07a;} .tr .st.s2{color:#ff9f43;} .tr .st.s3{color:var(--danger);animation:blink .55s infinite;}
+  @keyframes blink{50%{opacity:.35}}
+
+  .tasks{position:absolute;top:16px;left:50%;transform:translateX(-50%);padding:10px 18px;
+    display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:min(560px,52vw);}
+  .task{display:flex;align-items:center;gap:7px;font-size:.78rem;color:#8ea0b6;letter-spacing:.5px;
+    transition:color .3s;}
+  .task .dot{width:15px;height:15px;border-radius:5px;border:1.5px solid rgba(255,255,255,.25);
+    display:grid;place-items:center;font-size:.6rem;color:#0b0f16;transition:all .3s;flex:0 0 auto;}
+  .task.done{color:#e8eef6;}
+  .task.done .dot{background:var(--ok);border-color:var(--ok);}
+  .task.active{color:var(--gold);}
+  .task.active .dot{border-color:var(--gold);box-shadow:0 0 12px rgba(255,207,122,.5);animation:pulse 1.4s infinite;}
+  @keyframes pulse{50%{box-shadow:0 0 2px rgba(255,207,122,.15)}}
+
+  .bl{position:absolute;bottom:16px;left:16px;padding:9px 14px;font-size:.72rem;color:#9fb0c4;
+    letter-spacing:.6px;line-height:1.7;}
+  .bl b{color:var(--gold);font-weight:700;}
+
+  #toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .msg{background:rgba(14,19,28,.86);border:1px solid rgba(255,255,255,.13);
+    padding:9px 18px;border-radius:11px;font-size:.84rem;letter-spacing:.6px;
+    box-shadow:0 8px 26px rgba(0,0,0,.5);animation:pop .32s cubic-bezier(.2,1.4,.4,1) both;
+    white-space:nowrap;}
+  .msg.good{border-color:rgba(95,224,168,.5);color:#9df3cd;}
+  .msg.bad{border-color:rgba(255,93,93,.5);color:#ffb0b0;}
+  .msg.warn{border-color:rgba(255,207,122,.5);color:#ffdca6;}
+  @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.94)}}
+
+  /* ---------- 覆盖层 ---------- */
+  #overlay{position:absolute;inset:0;z-index:30;display:grid;place-items:center;
+    background:radial-gradient(120% 100% at 50% 40%,rgba(8,11,17,.82),rgba(8,11,17,.97));
+    backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);}
+  #overlay.hide{display:none;}
+  .card{width:min(660px,92vw);padding:34px 38px 30px;text-align:center;
+    background:linear-gradient(180deg,rgba(20,27,39,.94),rgba(13,18,26,.96));
+    border:1px solid rgba(255,255,255,.11);border-radius:22px;
+    box-shadow:0 30px 90px rgba(0,0,0,.75);animation:pop .4s cubic-bezier(.2,1.2,.4,1) both;
+    max-height:92vh;overflow:auto;}
+  .kicker{font-size:.68rem;letter-spacing:5px;color:var(--gold);opacity:.85;}
+  h1{margin:12px 0 0;font-size:2.5rem;letter-spacing:9px;font-weight:800;
+    background:linear-gradient(180deg,#fff3d8,#ffbe55);-webkit-background-clip:text;
+    background-clip:text;color:transparent;text-shadow:0 0 40px rgba(255,190,85,.18);}
+  .sub{margin-top:10px;font-size:.86rem;color:#93a5ba;letter-spacing:1px;line-height:1.8;}
+  .rule{margin:20px auto 0;max-width:520px;text-align:left;font-size:.8rem;line-height:2.05;
+    color:#a9bacd;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);
+    border-radius:13px;padding:14px 20px;}
+  .rule b{color:var(--gold);}
+  kbd{display:inline-block;min-width:22px;padding:1px 6px;margin:0 1px;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+    border-bottom-width:2px;border-radius:5px;font-size:.72rem;font-family:inherit;color:#e8eef6;}
+  .diffs{display:flex;gap:12px;margin-top:22px;justify-content:center;flex-wrap:wrap;}
+  .diff{flex:1 1 156px;max-width:186px;padding:14px 12px;border-radius:14px;cursor:pointer;
+    background:rgba(255,255,255,.045);border:1.5px solid rgba(255,255,255,.11);
+    transition:.2s;text-align:center;pointer-events:auto;}
+  .diff:hover{background:rgba(255,207,122,.11);border-color:rgba(255,207,122,.55);transform:translateY(-3px);}
+  .diff .n{font-size:.94rem;font-weight:800;letter-spacing:2px;color:#fff;}
+  .diff .t{margin-top:5px;font-size:.66rem;color:var(--gold);letter-spacing:1px;}
+  .diff .d{margin-top:7px;font-size:.68rem;color:#8ea0b6;line-height:1.6;}
+  .btn{margin-top:22px;display:inline-block;padding:13px 40px;border-radius:13px;cursor:pointer;
+    background:linear-gradient(180deg,#ffd88a,#f0a83c);color:#1a1206;font-weight:800;
+    letter-spacing:4px;font-size:.92rem;border:none;pointer-events:auto;
+    box-shadow:0 10px 30px rgba(240,168,60,.32);transition:.18s;font-family:inherit;}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(240,168,60,.45);}
+  .btn.ghost{background:transparent;color:#c9d5e3;border:1.5px solid rgba(255,255,255,.22);
+    box-shadow:none;margin-left:10px;}
+  .btn.ghost:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);}
+  .verdict{font-size:1.05rem;color:#cfdcea;margin-top:16px;letter-spacing:1.2px;font-style:italic;}
+  .stats{margin-top:18px;display:flex;gap:26px;justify-content:center;font-size:.76rem;color:#8ea0b6;}
+  .stats b{display:block;font-size:1.32rem;color:var(--gold);font-weight:800;margin-top:3px;
+    font-variant-numeric:tabular-nums;}
+  @media (max-width:760px){
+    .tasks{max-width:56vw;gap:11px;padding:8px 12px;} .task{font-size:.68rem;}
+    .tl{min-width:0;padding:9px 12px;} .tl .val{font-size:1.5rem;} .tl .lbl{font-size:.56rem;}
+    .tr{min-width:0;padding:9px 12px;} .bl{font-size:.62rem;padding:7px 10px;}
+    h1{font-size:1.75rem;letter-spacing:5px;} .card{padding:26px 20px;}
+    #toast{bottom:80px;} .msg{font-size:.72rem;padding:7px 13px;}
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div class="panel tl">
+    <div class="lbl">下班倒计时</div>
+    <div class="val" id="clock">18:00</div>
+    <div class="bar" id="tbar"><i id="tfill"></i></div>
+  </div>
+
+  <div class="panel tasks" id="tasks"></div>
+
+  <div class="panel tr">
+    <div class="lbl">被发现风险</div>
+    <div class="bar"><i id="afill"></i></div>
+    <div class="st" id="ast">安全</div>
+  </div>
+
+  <div class="panel bl">
+    <b>WASD</b> 移动 · <b>Shift</b> 潜行 · <b>空格</b> 冲刺 · <b>E</b> 交互 · <b>F</b> 丢键盘引开<br>
+    <span style="color:#ff9a9a">红色虚环「上司」</span> = 老板　其他色名牌 = 同事　地上淡字 = 区域名
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<div id="overlay"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   《下班潜行》  Offwork Escape
+   18:00 了。老板还没走。拿上背包、手机、工牌，打卡，溜进电梯。
+   ═══════════════════════════════════════════════════════════════ */
+
+// ───────────────────────── 地图 ─────────────────────────
+//  #  墙   H  工位隔断(实心)   G 玻璃(挡路不挡视线)   k 茶水吧台   o 绿植   E 电梯
+const MAP = [
+  "############################################",  //  0  外墙
+  "#..........................................#",  //  1  北走廊
+  "#..HHH..HHH..HHH..HHH..HHH.................#",  //  2  北侧工位
+  "#..........................................#",  //  3
+  "#..HHH..HHH..HHH..HHH..HHH.................#",  //  4  北侧工位
+  "#..........................................#",  //  5
+  "#..HHH..HHH..HHH..HHH..HHH.................#",  //  6  北侧工位
+  "#..........................................#",  //  7
+  "#..........................GGGGGGGGGGGG....#",  //  8  老板办公室(玻璃)
+  "#....##########............G..........G....#",  //  9  会议室
+  "#....#........#............G..HHHHH...G....#",  // 10  会议室 / 老板桌
+  "#....#........#............G..........G....#",  // 11
+  "#....#####.####............G..........G....#",  // 12  门 / 玻璃门
+  "#..........................GGGGG.GGGGGG....#",  // 13  老板办公室 南(门)
+  "#..........................................#",  // 14
+  "#..HHH..HHH..HHH..HHH......................#",  // 15  南侧工位
+  "#..........................................#",  // 16
+  "#..HHH..HHH..HHH..HHH......................#",  // 17  南侧工位
+  "#..........................................#",  // 18
+  "#....########...............########.......#",  // 19  茶水间 / 电梯厅
+  "#....#.k....#...............#......#.......#",  // 20  饮料吧台
+  "#....#......#...............#..EE..#.......#",  // 21  电梯
+  "#....#......#...............#......#.......#",  // 22
+  "#..........................................#",  // 23  南走廊
+  "#.........o......................o.........#",  // 24
+  "############################################",  // 25  外墙
+];
+
+const MAPW = MAP[0].length, MAPH = MAP.length;
+const TILE = 36;
+const SOLID = '#';      // 挡路 + 挡视线
+const BLOCK = 'Hko';    // 家具：挡路 + 挡视线
+const GLASS = 'G';      // 挡路，不挡视线
+
+function charAt(c, r){
+  if(c < 0 || r < 0 || c >= MAPW || r >= MAPH) return '#';
+  return MAP[r][c];
+}
+function tileAt(x, y){ return charAt(Math.floor(x), Math.floor(y)); }
+function blocksMove(c, r){ const ch = charAt(c, r); return ch === SOLID || BLOCK.indexOf(ch) >= 0 || ch === GLASS; }
+function blocksSight(c, r){ const ch = charAt(c, r); return ch === SOLID || BLOCK.indexOf(ch) >= 0; }
+function blocksSightPt(x, y){ return blocksSight(Math.floor(x), Math.floor(y)); }
+function blocksMovePt(x, y){ return blocksMove(Math.floor(x), Math.floor(y)); }
+
+// ───────────────────────── 难度 ─────────────────────────
+const DIFF = {
+  easy: {
+    key:'easy', name:'摸鱼模式', tag:'下班还有 4 分钟',
+    desc:'老板眼神不好，同事懒得管你。适合第一次玩。',
+    time:250, vision:5.6, fov:72, bossSpeed:2.55, mateSpeed:1.75, alertRate:0.85, mates:3,
+  },
+  normal: {
+    key:'normal', name:'常规下班', tag:'标准的打工人日常',
+    desc:'老板会转头，同事会打小报告。标准体验。',
+    time:180, vision:6.6, fov:80, bossSpeed:2.95, mateSpeed:2.0, alertRate:1.25, mates:3,
+  },
+  hell: {
+    key:'hell', name:'死神来了', tag:'今天必须走',
+    desc:'老板鹰眼，茶水间还蹲着一个同事。别出声。',
+    time:135, vision:8.2, fov:94, bossSpeed:3.4, mateSpeed:2.3, alertRate:1.8, mates:4,
+  },
+};
+
+// ───────────────────────── 世界数据 ─────────────────────────
+const PLAYER_SPAWN = [4.5, 16.5];
+
+const ITEM_DEFS = [
+  { id:'bag',   name:'背包', icon:'🎒', pos:[6.5, 16.5],  tip:'背包到手。挎包的姿势要自然。' },
+  { id:'phone', name:'手机', icon:'📱', pos:[9.5, 21.5],  tip:'手机到手。茶水间，高危区域。' },
+  { id:'badge', name:'工牌', icon:'🪪', pos:[33.5, 12.5], tip:'工牌到手……你居然进了老板办公室。' },
+];
+const CLOCKIN_POS  = [26.5, 21.5];
+const ELEVATOR_POS = [31.5, 21.5];
+
+const ROUTES = {
+  boss:  [[32.5,11.5],[32.5,14.5],[32.5,18.5],[14.5,18.5],[4.5,18.5],[4.5,23.5],[38.5,23.5],[38.5,20.5],[38.5,15.5],[32.5,15.5],[32.5,14.5]],
+  mateA: [[2.5,1.5],[2.5,7.5],[21.5,7.5],[21.5,1.5]],
+  mateB: [[2.5,16.5],[2.5,18.5],[26.5,18.5],[26.5,16.5]],
+  mateC: [[16.5,23.5],[26.5,23.5],[26.5,21.5],[16.5,21.5]],
+  mateD: [[6.5,22.5],[6.5,21.5],[11.5,21.5],[11.5,22.5]],
+};
+const MATE_DEFS = [
+  { route:'mateA', color:'#63a9e8', name:'小李' },
+  { route:'mateB', color:'#8ad6a8', name:'老张' },
+  { route:'mateC', color:'#c79be8', name:'阿May' },
+  { route:'mateD', color:'#e8b37a', name:'王姐' },
+];
+
+// 区域标识（像平面图一样印在地面上）  x/y 为格坐标中心
+const ZONES = [
+  { t:'开放办公区', x:34.6, y:4.50,  s:15, sp:7,  a:.15 },
+  { t:'开放办公区', x:32.2, y:16.50, s:15, sp:7,  a:.15 },
+  { t:'会议室',     x:10.0, y:10.55, s:17, sp:8,  a:.20 },
+  { t:'老板办公室', x:32.5, y:9.55,  s:15, sp:5,  a:.21 },
+  { t:'茶水间',     x:9.0,  y:21.50, s:15, sp:6,  a:.20 },
+  { t:'电梯厅',     x:32.0, y:22.62, s:14, sp:6,  a:.19 },
+  { t:'打卡',       x:26.5, y:22.50, s:12, sp:4,  a:.30, c:'126,240,192' },
+  { t:'北走廊',     x:21.5, y:1.50,  s:12, sp:11, a:.10 },
+  { t:'南走廊',     x:21.5, y:24.50, s:12, sp:11, a:.10 },
+  { t:'你的工位',   x:4.5,  y:14.28, s:11, sp:4,  a:.17 },
+];
+
+// ───────────────────────── 状态 ─────────────────────────
+let D = DIFF.normal;
+let state = 'menu';           // menu | playing | won | lost
+let failReason = '';
+let timeLeft = 0, totalTime = 0;
+let elapsed = 0;
+let player, boss, mates, items, clockedIn, noises, particles, floats;
+let camShake = 0, vignette = 0, caughtBy = null;
+let bossGiveUp = 0;
+let lastTs = 0;
+
+const keys = Object.create(null);
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const overlay = document.getElementById('overlay');
+const toastBox = document.getElementById('toast');
+const tasksBox = document.getElementById('tasks');
+const clockEl = document.getElementById('clock');
+const tfillEl = document.getElementById('tfill');
+const tbarEl  = document.getElementById('tbar');
+const afillEl = document.getElementById('afill');
+const astEl   = document.getElementById('ast');
+
+let VW = 0, VH = 0, DPR = 1, scale = 1, offX = 0, offY = 0;
+
+/* ═════════════ 音效（WebAudio 合成，无外部资源） ═════════════ */
+const Sfx = (function(){
+  let ac = null, master = null, beat = 0, beatTimer = 0;
+  function init(){
+    if(ac) return;
+    try{
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = 0.28; master.connect(ac.destination);
+    }catch(e){ ac = null; }
+  }
+  function resume(){ init(); if(ac && ac.state === 'suspended') ac.resume(); }
+  function tone(freq, dur, type, gain, slideTo, delay){
+    if(!ac) return;
+    const t0 = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t0);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain || .3, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + dur + .03);
+  }
+  function noise(dur, gain, lp, delay){
+    if(!ac) return;
+    const t0 = ac.currentTime + (delay || 0);
+    const n = Math.floor(ac.sampleRate * dur);
+    const buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp || 900;
+    const g = ac.createGain(); g.gain.value = gain || .18;
+    src.connect(f); f.connect(g); g.connect(master); src.start(t0);
+  }
+  return {
+    resume, init,
+    step(){ if(Math.random() < .55) noise(.045, .05, 1400); },
+    pickup(){ tone(660, .1, 'triangle', .26); tone(990, .14, 'triangle', .22, null, .07); },
+    deny(){ tone(180, .16, 'square', .16, 120); },
+    clock(){ tone(880, .09, 'square', .2); tone(1320, .18, 'square', .18, null, .1); },
+    alarm(){ tone(520, .3, 'sawtooth', .22, 900); tone(520, .3, 'sawtooth', .22, 900, .22); },
+    caught(){ tone(320, .5, 'sawtooth', .28, 90); noise(.5, .22, 500); },
+    win(){ [523,659,784,1046].forEach((f,i)=>tone(f, .34, 'triangle', .26, null, i*.11)); },
+    lose(){ [392,330,262,196].forEach((f,i)=>tone(f, .42, 'sine', .26, null, i*.16)); },
+    whisper(){ tone(1400, .1, 'sine', .07, 900); },
+    distract(){ tone(240, .09, 'square', .18); noise(.12, .16, 2200); },
+    heartbeat(){
+      if(!ac) return;
+      tone(58, .1, 'sine', .3); tone(48, .13, 'sine', .22, null, .14);
+    },
+  };
+})();
+
+/* ═════════════ 工具 ═════════════ */
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const dist  = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+function angNorm(a){ a %= Math.PI*2; if(a > Math.PI) a -= Math.PI*2; if(a < -Math.PI) a += Math.PI*2; return a; }
+function angLerp(a, b, t){ return a + angNorm(b - a) * t; }
+
+// #rrggbb → rgba(...)
+function hexA(h, a){
+  const n = parseInt(h.slice(1), 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function roundRect(c, x, y, w, h, r){
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y,     x + w, y + h, r);
+  c.arcTo(x + w, y + h, x,     y + h, r);
+  c.arcTo(x,     y + h, x,     y,     r);
+  c.arcTo(x,     y,     x + w, y,     r);
+  c.closePath();
+}
+// 按屏幕尺寸补偿的 UI 缩放：地图缩小时文字不至于看不清
+function uiScale(){ return clamp(1 / Math.max(scale, .001), .8, 1.9); }
+
+function toast(text, kind){
+  const el = document.createElement('div');
+  el.className = 'msg ' + (kind || '');
+  el.textContent = text;
+  toastBox.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .45s, transform .45s'; el.style.opacity = '0'; el.style.transform = 'translateY(-10px)'; }, 2200);
+  setTimeout(() => el.remove(), 2750);
+  while(toastBox.children.length > 3) toastBox.firstChild.remove();
+}
+
+function burst(x, y, color, n){
+  for(let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2, s = 1.2 + Math.random() * 3.4;
+    particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 1, max: .5 + Math.random()*.6, color, r: 1.6 + Math.random()*2.4 });
+  }
+}
+function floatText(x, y, text, color){
+  floats.push({ x, y, text, color: color || '#ffcf7a', life: 1 });
+}
+
+/* ═════════════ 视线 / 视野 ═════════════ */
+// 两点之间是否通视（用于 NPC 判断能否看见玩家）
+function hasLOS(x0, y0, x1, y1){
+  const dx = x1 - x0, dy = y1 - y0, d = Math.hypot(dx, dy);
+  if(d < .0001) return true;
+  const steps = Math.ceil(d / 0.14);
+  for(let i = 1; i < steps; i++){
+    const t = i / steps;
+    if(blocksSightPt(x0 + dx*t, y0 + dy*t)) return false;
+  }
+  return true;
+}
+
+// 射线投射：生成被墙裁切的视野多边形
+function visionPolygon(x, y, dir, fov, range, segs){
+  const pts = [[x, y]];
+  const half = fov / 2, step = 0.13;
+  for(let i = 0; i <= segs; i++){
+    const a = dir - half + fov * i / segs;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    let d = 0;
+    while(d < range){
+      d += step;
+      if(blocksSightPt(x + ca*d, y + sa*d)){ d -= step * 0.7; break; }
+    }
+    if(d > range) d = range;
+    pts.push([x + ca*d, y + sa*d]);
+  }
+  return pts;
+}
+
+/* ═════════════ 实体 ═════════════ */
+function makeNPC(route, opts){
+  const pts = ROUTES[route];
+  return {
+    route, pts, wp: 1 % pts.length,
+    x: pts[0][0], y: pts[0][1],
+    dir: 0, speed: opts.speed,
+    color: opts.color, name: opts.name, isBoss: !!opts.isBoss, isMate: !opts.isBoss,
+    alert: 0, mode: 'patrol', pauseT: 0, dizzy: 0,
+    investigate: null, reportCd: 0, lookT: 0,
+    vision: opts.vision, fov: opts.fov, range: opts.range,
+    walkT: 0, faceT: 0,
+  };
+}
+
+function newGame(diffKey){
+  D = DIFF[diffKey] || DIFF.normal;
+  totalTime = D.time; timeLeft = totalTime; elapsed = 0;
+
+  player = {
+    x: PLAYER_SPAWN[0], y: PLAYER_SPAWN[1],
+    dir: -Math.PI/2, speed: 0, stamina: 1, sprintT: 0,
+    sneak: false, radius: .33, stepT: 0, moving: false,
+    hidden: 0, keyboardCd: 0,
+  };
+
+  items = ITEM_DEFS.map(d => ({ ...d, taken:false, bob: Math.random()*6.28 }));
+  clockedIn = false;
+  noises = [];
+  particles = [];
+  floats = [];
+  camShake = 0; vignette = 0; caughtBy = null; bossGiveUp = 0;
+
+  boss = makeNPC('boss', {
+    speed: D.bossSpeed, color:'#ff6b6b', name:'上司', isBoss:true,
+    vision: D.vision, fov: D.fov * Math.PI/180, range: D.vision,
+  });
+
+  mates = MATE_DEFS.slice(0, D.mates).map(m => makeNPC(m.route, {
+    speed: D.mateSpeed, color: m.color, name: m.name,
+    vision: D.vision * 0.62, fov: (D.fov - 14) * Math.PI/180, range: D.vision * 0.62,
+  }));
+
+  buildTasks();
+  updateTaskGuide();
+  state = 'playing';
+  overlay.classList.add('hide');
+  Sfx.resume();
+  toast('18:00 · 下班时间到了。老板还在办公室。', 'warn');
+  setTimeout(() => toast('拿上背包、手机、工牌 → 打卡 → 进电梯', 'good'), 1400);
+}
+
+function buildTasks(){
+  const list = [
+    { id:'bag',   label:'背包' },
+    { id:'phone', label:'手机' },
+    { id:'badge', label:'工牌' },
+    { id:'clock', label:'打卡' },
+    { id:'out',   label:'下班' },
+  ];
+  tasksBox.innerHTML = list.map(t => '<div class="task" data-t="'+t.id+'"><span class="dot"></span><span>'+t.label+'</span></div>').join('');
+}
+function taskDone(id){ const el = tasksBox.querySelector('[data-t="'+id+'"]'); if(el){ el.classList.add('done'); el.classList.remove('active'); el.querySelector('.dot').textContent = '✓'; } }
+function taskActive(id){
+  tasksBox.querySelectorAll('.task').forEach(e => e.classList.remove('active'));
+  const el = tasksBox.querySelector('[data-t="'+id+'"]');
+  if(el) el.classList.add('active');
+}
+
+/* ═════════════ 输入 ═════════════ */
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if([' ','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k) >= 0) e.preventDefault();
+  if(k === 'e') tryInteract();
+  if(k === 'f') throwKeyboard();
+  if(k === 'shift') player && (player.sneak = true);
+});
+window.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+  if(k === 'shift' && player) player.sneak = false;
+});
+window.addEventListener('blur', () => { for(const k in keys) keys[k] = false; });
+
+function keyDown(){ return keys['w'] || keys['arrowup']; }
+function keyUp(){ return keys['s'] || keys['arrowdown']; }
+function keyLeft(){ return keys['a'] || keys['arrowleft']; }
+function keyRight(){ return keys['d'] || keys['arrowright']; }
+
+/* ═════════════ 玩家动作 ═════════════ */
+// AABB vs 格子：实体占据的每个格子都必须是可走的
+function areaFree(x, y, r){
+  const c0 = Math.floor(x - r), c1 = Math.floor(x + r);
+  const r0 = Math.floor(y - r), r1 = Math.floor(y + r);
+  for(let rr = r0; rr <= r1; rr++)
+    for(let cc = c0; cc <= c1; cc++)
+      if(blocksMove(cc, rr)) return false;
+  return true;
+}
+
+function resolveMove(ent, nx, ny, r){
+  if(areaFree(nx, ny, r)){ ent.x = nx; ent.y = ny; return true; }
+  // 分轴滑动：撞墙时沿墙滑行
+  let moved = false;
+  if(areaFree(nx, ent.y, r)){ ent.x = nx; moved = true; }
+  if(areaFree(ent.x, ny, r)){ ent.y = ny; moved = true; }
+  return moved;
+}
+
+function tryInteract(){
+  if(state !== 'playing') return;
+  // 拾取
+  for(const it of items){
+    if(it.taken) continue;
+    if(dist([player.x, player.y], it.pos) < 1.15){
+      it.taken = true;
+      Sfx.pickup();
+      burst(it.pos[0], it.pos[1], '#ffd98a', 16);
+      floatText(it.pos[0], it.pos[1] - .5, it.name + ' ✓', '#9df3cd');
+      toast(it.tip, 'good');
+      taskDone(it.id);
+      updateTaskGuide();
+      return;
+    }
+  }
+  // 打卡
+  if(!clockedIn && dist([player.x, player.y], CLOCKIN_POS) < 1.2){
+    const need = items.filter(i => !i.taken);
+    if(need.length){
+      Sfx.deny();
+      toast('还没拿齐：' + need.map(i => i.name).join('、'), 'bad');
+      return;
+    }
+    clockedIn = true;
+    Sfx.clock();
+    burst(CLOCKIN_POS[0], CLOCKIN_POS[1], '#7ef0c0', 20);
+    floatText(CLOCKIN_POS[0], CLOCKIN_POS[1] - .5, '打卡成功', '#9df3cd');
+    toast('打卡成功。18:01，历史性的一刻。', 'good');
+    taskDone('clock'); taskActive('out');
+    return;
+  }
+  // 电梯
+  if(dist([player.x, player.y], ELEVATOR_POS) < 1.5){
+    if(!clockedIn){
+      Sfx.deny();
+      toast('还没打卡。先回去刷卡。', 'bad');
+      return;
+    }
+    winGame();
+    return;
+  }
+}
+
+function updateTaskGuide(){
+  const next = items.find(i => !i.taken);
+  if(next){ taskActive(next.id); return; }
+  if(!clockedIn){ taskActive('clock'); return; }
+  taskActive('out');
+}
+
+function throwKeyboard(){
+  if(state !== 'playing' || player.keyboardCd > 0) return;
+  player.keyboardCd = 9;
+  Sfx.distract();
+  const nx = player.x + Math.cos(player.dir) * 1.6;
+  const ny = player.y + Math.sin(player.dir) * 1.6;
+  noises.push({ x: nx, y: ny, life: 5.2, max: 5.2 });
+  burst(nx, ny, '#8fa8c0', 12);
+  toast('键盘飞了出去 —— 声音会把人引过去。', 'warn');
+}
+
+/* ═════════════ 玩家更新 ═════════════ */
+function updatePlayer(dt){
+  const sneak = player.sneak;
+  const sprinting = keys[' '] && player.stamina > 0.02 && (keyDown()||keyUp()||keyLeft()||keyRight());
+
+  let base = 3.35;
+  let v = sneak ? base * 0.46 : (sprinting ? base * 1.7 : base);
+  if(player.sprintT > 0) v *= 1.0;
+
+  let ix = 0, iy = 0;
+  if(keyDown()) iy -= 1;
+  if(keyUp()) iy += 1;
+  if(keyLeft()) ix -= 1;
+  if(keyRight()) ix += 1;
+  const len = Math.hypot(ix, iy);
+  player.moving = len > 0;
+
+  if(len > 0){
+    ix /= len; iy /= len;
+    player.dir = angLerp(player.dir, Math.atan2(iy, ix), clamp(dt * 13, 0, 1));
+    resolveMove(player, player.x + ix * v * dt, player.y + iy * v * dt, player.radius);
+    player.speed = v;
+    // 脚步声
+    player.stepT -= dt * (sprinting ? 2.3 : sneak ? .6 : 1.25);
+    if(player.stepT <= 0){ player.stepT = 1; Sfx.step(); }
+    // 移动粒子
+    if(Math.random() < (sprinting ? .5 : .16)){
+      particles.push({ x: player.x, y: player.y + .25, vx: (Math.random()-.5)*.5, vy: (Math.random()-.5)*.5,
+                       life: 1, max: .45, color: '#5b6b80', r: 1.4 });
+    }
+  } else {
+    player.speed = 0;
+  }
+
+  // 体力
+  if(sprinting){ player.stamina = clamp(player.stamina - dt * 0.42, 0, 1); }
+  else { player.stamina = clamp(player.stamina + dt * 0.24, 0, 1); }
+
+  if(player.keyboardCd > 0) player.keyboardCd -= dt;
+
+  // 玩家自己的脚步声会吸引人（跑动更响、传得更远）
+  if(player.moving && !sneak){
+    player.noiseT = (player.noiseT || 0) - dt;
+    if(player.noiseT <= 0){
+      player.noiseT = sprinting ? 0.8 : 1.6;
+      const reach = sprinting ? 4.6 : 2.7;
+      for(const n of [boss].concat(mates)){
+        if(n.mode === 'chase') continue;
+        const d2 = dist([player.x, player.y], [n.x, n.y]);
+        if(d2 < reach && hasLOS(n.x, n.y, player.x, player.y)){
+          n.alert = clamp(n.alert + 7, 0, 100);
+        }
+      }
+    }
+  }
+}
+
+function nearestNPC(p){
+  let best = null;
+  for(const n of [boss].concat(mates)){ const d = dist(p, [n.x, n.y]); if(!best || d < best.d) best = { npc:n, d }; }
+  return best;
+}
+
+/* ═════════════ NPC 更新 ═════════════ */
+function updateNPC(n, dt){
+  if(n.pauseT > 0){
+    n.pauseT -= dt;
+    n.mode = 'pause';
+    // 停顿时左右张望
+    n.faceT -= dt;
+    if(n.faceT <= 0){ n.faceT = 1.1 + Math.random() * 1.3; n.dir = angNorm(n.dir + (Math.random() - .5) * 1.5); }
+    return;
+  }
+  n.mode = n.mode === 'pause' ? 'patrol' : n.mode;
+
+  // 找目标点
+  let target;
+  if(n.mode === 'chase'){ target = [player.x, player.y]; }
+  else if(n.mode === 'investigate' && n.investigate){ target = n.investigate; }
+  else { target = n.pts[n.wp]; }
+
+  const dx = target[0] - n.x, dy = target[1] - n.y;
+  const d = Math.hypot(dx, dy);
+
+  if(d < (n.mode === 'patrol' ? 0.22 : 0.45)){
+    onArrive(n);
+    return;
+  }
+
+  const ang = Math.atan2(dy, dx);
+  n.dir = angLerp(n.dir, ang, clamp(dt * 6.5, 0, 1));
+
+  let sp = n.speed;
+  if(n.mode === 'chase') sp *= 1.06;
+  if(n.mode === 'investigate') sp *= 1.1;
+  if(n.alert > 55) sp *= 1.08;
+
+  resolveMove(n, n.x + Math.cos(ang) * sp * dt, n.y + Math.sin(ang) * sp * dt, .3);
+
+  n.walkT -= dt;
+  if(n.walkT <= 0){
+    n.walkT = n.isBoss ? .42 : .5;
+    if(Math.random() < .3) particles.push({ x:n.x, y:n.y + .25, vx:(Math.random()-.5)*.4, vy:(Math.random()-.5)*.4,
+                                            life:1, max:.4, color:'#4a5768', r:1.3 });
+  }
+}
+
+function onArrive(n){
+  if(n.mode === 'chase'){ n.mode = 'patrol'; return; }
+  if(n.mode === 'investigate'){
+    n.mode = 'patrol';
+    n.investigate = null;
+    // 到了没发现人，愣一会儿
+    n.pauseT = 1.1 + Math.random() * .8;
+    n.faceT = 0;
+    return;
+  }
+  // 巡逻：推进路点
+  n.wp = (n.wp + 1) % n.pts.length;
+  // 老板偶尔停下来看手机 / 喝咖啡
+  const pauseChance = n.isBoss ? .42 : .30;
+  if(Math.random() < pauseChance){
+    n.pauseT = n.isBoss ? (1.6 + Math.random() * 2.4) : (1.2 + Math.random() * 2.0);
+    n.faceT = 0;
+    if(n.isBoss && Math.random() < .45) n.lookT = n.pauseT;
+  }
+}
+
+// 警戒值计算
+function updateAlert(n, dt){
+  if(n.isBoss && (n.dizzy || 0) > 0){ n.dizzy -= dt; }
+  const dx = player.x - n.x, dy = player.y - n.y;
+  const d = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx);
+  const inFov = Math.abs(angNorm(ang - n.dir)) < n.fov / 2;
+  // 看手机时视野缩短
+  const rangeMul = n.lookT > 0 ? .42 : 1;
+  const range = n.range * rangeMul;
+  const seen = d < range && inFov && hasLOS(n.x, n.y, player.x, player.y);
+
+  // 极近距离转身也能察觉到（听觉）
+  const heard = d < (player.moving ? (player.sneak ? 1.1 : 2.0) : 0.9) && hasLOS(n.x, n.y, player.x, player.y);
+
+  let rate = 0;
+  if(seen){
+    // 越近越快；潜行减半；静止再减半
+    const closeness = 1 - clamp(d / range, 0, 1) * 0.72;
+    rate = 88 * closeness * (player.sneak ? .5 : 1) * (player.moving ? 1 : .55) * D.alertRate;
+    if(n.lookT > 0) rate *= .35;
+  } else if(heard){
+    rate = 34 * D.alertRate * (player.sneak ? .45 : 1);
+  } else {
+    rate = -30; // 脱离视线快速回落
+  }
+
+  if(rate > 0){
+    n.alert = clamp(n.alert + rate * dt, 0, 100);
+  } else {
+    n.alert = clamp(n.alert + rate * dt * (n.alert > 78 ? .42 : 1), 0, 100);
+  }
+
+  // 状态迁移
+  if(n.alert >= 100){
+    n.alert = 100;
+    if(n.mode !== 'chase'){
+      n.mode = 'chase';
+      Sfx.alarm();
+      toast(n.isBoss ? '上司发现你了！他在追你！' : (n.name + ' 喊了一声，上司听见了！'), 'bad');
+      if(n.isMate){
+        // 同事打小报告：把老板引向玩家
+        boss.mode = 'investigate';
+        boss.investigate = [player.x, player.y];
+        boss.alert = Math.max(boss.alert, 62);
+      }
+      camShake = 12;
+    }
+  } else if(n.alert < 42 && n.mode === 'chase'){
+    n.mode = 'patrol';
+    n.investigate = null;
+  }
+
+  // 追捕判定
+  if(n.mode === 'chase' && d < 0.86){
+    loseGame(n.isBoss ? '「小王，来我办公室一趟。」' : '「喂，这么早走啊？我记下了。」', n);
+    return;
+  }
+}
+
+function updateBossExtra(dt){
+  // 老板追久了会放弃（给玩家喘息）
+  if(boss.mode === 'chase'){
+    bossGiveUp += dt;
+    if(bossGiveUp > 7.5){
+      boss.mode = 'patrol';
+      boss.alert = 45;
+      bossGiveUp = 0;
+      boss.pauseT = 1.4; boss.faceT = 0;
+      toast('上司放弃追了 —— 他还要留着力气加班。', 'good');
+    }
+  } else bossGiveUp = 0;
+}
+
+function updateNoises(dt){
+  for(let i = noises.length - 1; i >= 0; i--){
+    const nz = noises[i];
+    nz.life -= dt;
+    if(nz.life <= 0){ noises.splice(i, 1); continue; }
+    if(nz.life > nz.max - 0.35){
+      // 刚发出，吸引附近的人
+      const all = [boss].concat(mates);
+      for(const n of all){
+        if(n.mode === 'chase') continue;
+        if(dist([n.x, n.y], [nz.x, nz.y]) < 9.5 && hasLOS(n.x, n.y, nz.x, nz.y)){
+          n.mode = 'investigate';
+          n.investigate = [nz.x, nz.y];
+          n.alert = Math.max(n.alert, 30);
+        }
+      }
+    }
+  }
+}
+
+/* ═════════════ 胜负 ═════════════ */
+function winGame(){
+  state = 'won';
+  Sfx.win();
+  for(let i = 0; i < 60; i++) burst(ELEVATOR_POS[0] + (Math.random()-.5)*3, ELEVATOR_POS[1] + (Math.random()-.5)*3,
+                                    ['#ffd98a','#9df3cd','#8ad6ff'][i%3], 4);
+  const used = totalTime - timeLeft;
+  showEnd(true, '你成功准时下班了', '电梯门合上的那一秒，你听见身后传来一声「哎？人呢？」—— 但已经来不及了。',
+    [['用时', used.toFixed(1) + 's'], ['剩余时间', Math.ceil(timeLeft) + 's'], ['被发现次数', String(player.caught || 0)]]);
+}
+
+function loseGame(reason, by){
+  if(state !== 'playing') return;
+  state = 'lost';
+  failReason = reason;
+  caughtBy = by || null;
+  Sfx.caught();
+  camShake = 22;
+  setTimeout(() => Sfx.lose(), 260);
+  const used = totalTime - timeLeft;
+  showEnd(false, '被抓住了', reason, [['撑了', used.toFixed(1) + 's'], ['剩余时间', Math.ceil(timeLeft) + 's']]);
+}
+function timeUp(){
+  state = 'lost';
+  Sfx.lose();
+  showEnd(false, '22:00 · 你还在工位', '外卖到了，泡面很香，眼泪很咸。今天也是充实的一天呢。',
+    [['自由时间', '0s']]);
+}
+
+function showEnd(win, title, text, stats){
+  overlay.classList.remove('hide');
+  overlay.innerHTML =
+    '<div class="card">' +
+      '<div class="kicker">' + (win ? 'SUCCESS · 准时下班' : 'GAME OVER') + '</div>' +
+      '<h1 style="font-size:2rem;letter-spacing:5px">' + title + '</h1>' +
+      '<div class="verdict">' + text + '</div>' +
+      '<div class="stats">' + stats.map(s => '<div>' + s[0] + '<b>' + s[1] + '</b></div>').join('') + '</div>' +
+      '<div style="margin-top:26px">' +
+        '<button class="btn" id="again">再来一次</button>' +
+        '<button class="btn ghost" id="back">换难度</button>' +
+      '</div>' +
+      (win ? '<div class="sub" style="margin-top:20px;font-size:.74rem">朋友圈文案建议：「今天也是高效的一天。」</div>' : '') +
+    '</div>';
+  document.getElementById('again').onclick = () => newGame(D.key);
+  document.getElementById('back').onclick = showMenu;
+}
+
+/* ═════════════ 渲染 ═════════════ */
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  VW = window.innerWidth; VH = window.innerHeight;
+  cv.width = Math.floor(VW * DPR); cv.height = Math.floor(VH * DPR);
+  cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const mw = MAPW * TILE, mh = MAPH * TILE;
+  scale = Math.min(VW / mw, VH / mh) * 0.955;
+  offX = (VW - mw * scale) / 2;
+  offY = (VH - mh * scale) / 2;
+}
+window.addEventListener('resize', resize);
+
+// 静态层（地板 / 墙 / 家具 / 灯光）预渲染
+let staticLayer = null;
+function buildStatic(){
+  staticLayer = document.createElement('canvas');
+  staticLayer.width = MAPW * TILE; staticLayer.height = MAPH * TILE;
+  const g = staticLayer.getContext('2d');
+
+  // 地板
+  g.fillStyle = '#161c26'; g.fillRect(0, 0, MAPW*TILE, MAPH*TILE);
+  for(let r = 0; r < MAPH; r++){
+    for(let c = 0; c < MAPW; c++){
+      const ch = MAP[r][c];
+      const x = c*TILE, y = r*TILE;
+      if(ch === '#') continue;
+      // 地砖
+      const v = ((c * 7 + r * 13) % 5) * 2;
+      g.fillStyle = 'rgb(' + (26+v) + ',' + (33+v) + ',' + (44+v) + ')';
+      g.fillRect(x, y, TILE, TILE);
+      g.strokeStyle = 'rgba(255,255,255,.026)'; g.lineWidth = 1;
+      g.strokeRect(x + .5, y + .5, TILE - 1, TILE - 1);
+    }
+  }
+
+  // 区域色块（会议室 / 茶水间 / 电梯厅 / 老板办公室）
+  function zone(c0, r0, c1, r1, color){
+    g.fillStyle = color;
+    g.fillRect(c0*TILE, r0*TILE, (c1-c0+1)*TILE, (r1-r0+1)*TILE);
+  }
+  zone(6, 10, 13, 11, 'rgba(120,140,190,.055)');   // 会议室
+  zone(6, 20, 11, 22, 'rgba(190,150,90,.06)');     // 茶水间
+  zone(29, 20, 34, 22, 'rgba(120,170,210,.06)');   // 电梯厅
+  zone(28, 9, 37, 12, 'rgba(255,120,120,.045)');   // 老板办公室
+
+  // 家具 / 墙
+  for(let r = 0; r < MAPH; r++){
+    for(let c = 0; c < MAPW; c++){
+      const ch = MAP[r][c], x = c*TILE, y = r*TILE;
+      if(ch === 'H'){                       // 工位隔断（俯视：桌面 + 显示器）
+        g.fillStyle = '#2c3542'; g.fillRect(x+1, y+1, TILE-2, TILE-2);
+        g.fillStyle = '#3a4655'; g.fillRect(x+2, y+2, TILE-4, TILE-4);
+        g.fillStyle = '#151a22'; g.fillRect(x+5, y+6, TILE-14, TILE-16);   // 显示器
+        g.fillStyle = 'rgba(110,170,220,.5)'; g.fillRect(x+6, y+7, TILE-16, TILE-18);
+        g.fillStyle = '#242c37'; g.fillRect(x+4, y+TILE-11, TILE-8, 5);    // 键盘位
+      }
+      else if(ch === 'k'){                  // 饮料吧台
+        g.fillStyle = '#33291f'; g.fillRect(x, y, TILE, TILE);
+        g.fillStyle = '#4a3b2b'; g.fillRect(x+2, y+2, TILE-4, TILE-4);
+        g.fillStyle = '#6b5540'; g.fillRect(x+6, y+8, 9, 15);
+        g.fillStyle = '#8d7256'; g.fillRect(x+19, y+8, 9, 15);
+        g.fillStyle = 'rgba(255,210,140,.35)'; g.fillRect(x+6, y+8, 9, 3);
+      }
+      else if(ch === 'o'){                  // 绿植
+        g.fillStyle = '#2b3a2c'; g.beginPath(); g.arc(x+TILE/2, y+TILE/2, TILE*.38, 0, 6.284); g.fill();
+        g.fillStyle = '#3f6042';
+        for(let i = 0; i < 6; i++){
+          const a = i * 1.047;
+          g.beginPath(); g.arc(x+TILE/2+Math.cos(a)*6, y+TILE/2+Math.sin(a)*6, 5.4, 0, 6.284); g.fill();
+        }
+        g.fillStyle = '#57805a'; g.beginPath(); g.arc(x+TILE/2, y+TILE/2, 6, 0, 6.284); g.fill();
+      }
+    }
+  }
+
+  // 墙（在上层画，覆盖家具边缘）
+  for(let r = 0; r < MAPH; r++){
+    for(let c = 0; c < MAPW; c++){
+      if(MAP[r][c] !== '#') continue;
+      const x = c*TILE, y = r*TILE;
+      g.fillStyle = '#28303c'; g.fillRect(x, y, TILE, TILE);
+      g.fillStyle = '#39434f'; g.fillRect(x, y, TILE, TILE - 6);
+      g.fillStyle = 'rgba(255,255,255,.055)'; g.fillRect(x, y, TILE, 2);
+      g.fillStyle = 'rgba(0,0,0,.30)'; g.fillRect(x, y + TILE - 6, TILE, 6);
+    }
+  }
+
+  // 玻璃（老板办公室）
+  for(let r = 0; r < MAPH; r++){
+    for(let c = 0; c < MAPW; c++){
+      if(MAP[r][c] !== 'G') continue;
+      const x = c*TILE, y = r*TILE;
+      g.fillStyle = 'rgba(120,190,230,.12)'; g.fillRect(x, y, TILE, TILE);
+      g.strokeStyle = 'rgba(150,215,245,.42)'; g.lineWidth = 2;
+      g.strokeRect(x+1, y+1, TILE-2, TILE-2);
+      g.fillStyle = 'rgba(200,240,255,.10)'; g.fillRect(x+3, y+3, TILE-6, 5);
+    }
+  }
+
+  // 电梯门
+  (function(){
+    const x = 31*TILE, y = 21*TILE, w = TILE*2;
+    g.fillStyle = '#1d242e'; g.fillRect(x, y, w, TILE);
+    g.fillStyle = '#2a3340'; g.fillRect(x+3, y+3, w-6, TILE-6);
+    g.fillStyle = '#0f141b'; g.fillRect(x + w/2 - 1.5, y+3, 3, TILE-6);
+    g.fillStyle = 'rgba(150,200,240,.30)'; g.fillRect(x+3, y+3, w-6, 3);
+  })();
+
+  // 打卡机（地面标识）
+  (function(){
+    const x = CLOCKIN_POS[0]*TILE, y = CLOCKIN_POS[1]*TILE;
+    g.strokeStyle = 'rgba(126,240,192,.55)'; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, TILE*.44, 0, 6.284); g.stroke();
+    g.fillStyle = 'rgba(126,240,192,.10)'; g.fill();
+    g.fillStyle = 'rgba(126,240,192,.75)';
+    g.fillRect(x-9, y-11, 18, 12);
+    g.fillStyle = '#0d1418'; g.fillRect(x-6, y-9, 12, 8);
+    g.fillStyle = 'rgba(126,240,192,.5)'; g.fillRect(x-9, y-11, 18, 2);
+  })();
+
+  // 工位的暖色台灯
+  const lamps = [[4.5,2.5],[10.5,2.5],[16.5,2.5],[4.5,6.5],[10.5,6.5],[4.5,15.5],[10.5,15.5],[16.5,17.5],[31.5,10.5],[8.5,20.5],[31.5,21.5]];
+  g.globalCompositeOperation = 'lighter';
+  for(const [lx, ly] of lamps){
+    const x = lx*TILE, y = ly*TILE;
+    const rg = g.createRadialGradient(x, y, 4, x, y, TILE*3.1);
+    rg.addColorStop(0, 'rgba(255,205,130,.19)');
+    rg.addColorStop(.45, 'rgba(255,180,110,.07)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, TILE*3.1, 0, 6.284); g.fill();
+  }
+  g.globalCompositeOperation = 'source-over';
+
+  // 整体压暗 + 边缘渐晕
+  const vg = g.createRadialGradient(MAPW*TILE/2, MAPH*TILE/2, MAPH*TILE*.25, MAPW*TILE/2, MAPH*TILE/2, MAPW*TILE*.62);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.42)');
+  g.fillStyle = vg; g.fillRect(0, 0, MAPW*TILE, MAPH*TILE);
+}
+
+// ── 区域名（印在地面上的平面图标注）──
+// 逐字宽度缓存的 key 数上限，避免反复 resize 后无限增长
+let _twCache = Object.create(null), _twKeys = 0;
+function charWidths(font, text){
+  const key = font + '|' + text;
+  let w = _twCache[key];
+  if(!w){
+    if(_twKeys > 240){ _twCache = Object.create(null); _twKeys = 0; }
+    ctx.font = font;
+    w = [];
+    for(const ch of text) w.push(ctx.measureText(ch).width);
+    _twCache[key] = w; _twKeys++;
+  }
+  return w;
+}
+
+function drawZoneLabels(){
+  const ui = uiScale();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for(const z of ZONES){
+    const size = z.s * ui, sp = z.sp * ui;
+    const col = z.c || '255,255,255';
+    const font = '600 ' + size.toFixed(1) + 'px "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif';
+    const ws = charWidths(font, z.t);
+    let total = -sp;
+    for(const w of ws) total += w + sp;
+    const x0 = z.x * TILE - total / 2;
+    const cy = z.y * TILE;
+    // 轻微暗影提升在深色地面上的可读性
+    ctx.fillStyle = 'rgba(0,0,0,' + (z.a * 1.5).toFixed(3) + ')';
+    let cx = x0;
+    for(let i = 0; i < z.t.length; i++){ ctx.fillText(z.t[i], cx + 1.2, cy + 1.4); cx += ws[i] + sp; }
+    ctx.fillStyle = 'rgba(' + col + ',' + z.a + ')';
+    cx = x0;
+    for(let i = 0; i < z.t.length; i++){ ctx.fillText(z.t[i], cx, cy); cx += ws[i] + sp; }
+  }
+}
+
+function drawVision(n){
+  const pts = visionPolygon(n.x, n.y, n.dir, n.fov, n.range * (n.lookT > 0 ? .42 : 1), 40);
+  const a = n.alert;
+  let base, edge;
+  if(n.mode === 'chase' || a > 78){ base = [255,80,80]; }
+  else if(a > 42){ base = [255,150,60]; }
+  else if(a > 14){ base = [255,205,120]; }
+  else { base = [190,215,255]; }
+
+  const alpha = n.mode === 'chase' ? .30 : .17;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0]*TILE, pts[0][1]*TILE);
+  for(let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]*TILE, pts[i][1]*TILE);
+  ctx.closePath();
+
+  const cx = n.x*TILE, cy = n.y*TILE, R = n.range*TILE;
+  const rg = ctx.createRadialGradient(cx, cy, 6, cx, cy, R);
+  rg.addColorStop(0, 'rgba(' + base[0] + ',' + base[1] + ',' + base[2] + ',' + (alpha*1.15) + ')');
+  rg.addColorStop(.65, 'rgba(' + base[0] + ',' + base[1] + ',' + base[2] + ',' + (alpha*.62) + ')');
+  rg.addColorStop(1, 'rgba(' + base[0] + ',' + base[1] + ',' + base[2] + ',0)');
+  ctx.fillStyle = rg;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPerson(n, isPlayer){
+  const x = n.x*TILE, y = n.y*TILE;
+  const R = 12.5;
+  const col = isPlayer ? '#ffd98a' : n.color;
+
+  // 影子
+  ctx.fillStyle = 'rgba(0,0,0,.42)';
+  ctx.beginPath(); ctx.ellipse(x, y + 7, R*.94, R*.52, 0, 0, 6.284); ctx.fill();
+
+  // 上司：外圈红色虚环，一眼区别于同事
+  if(!isPlayer && n.isBoss){
+    ctx.beginPath(); ctx.arc(x, y, R + 8.5, 0, 6.284);
+    ctx.strokeStyle = 'rgba(255,93,93,' + (n.mode === 'chase' ? .95 : .42) + ')';
+    ctx.lineWidth = 1.9; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // 身体
+  ctx.beginPath(); ctx.arc(x, y, R, 0, 6.284);
+  ctx.fillStyle = '#1b232e'; ctx.fill();
+  ctx.lineWidth = 2.6; ctx.strokeStyle = col; ctx.stroke();
+
+  // 内圆
+  ctx.beginPath(); ctx.arc(x, y, R - 4.4, 0, 6.284);
+  ctx.fillStyle = isPlayer ? 'rgba(255,217,138,.90)' : col; ctx.fill();
+
+  // 朝向
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(n.dir);
+  const nose = R + (isPlayer ? 8 : 7);
+  ctx.beginPath();
+  ctx.moveTo(nose, 0); ctx.lineTo(R - 3, -6.6); ctx.lineTo(R - 3, 6.6);
+  ctx.closePath();
+  ctx.fillStyle = col; ctx.fill();
+  ctx.restore();
+
+  // 老板：领带标记
+  if(n.isBoss){
+    ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 6.284); ctx.fillStyle = '#ff4d4d'; ctx.fill();
+  }
+
+  // 视线方向的小光点
+  ctx.beginPath();
+  ctx.arc(x + Math.cos(n.dir)*(R+3), y + Math.sin(n.dir)*(R+3), 2.6, 0, 6.284);
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fill();
+
+  // 警戒小环
+  if(n.alert > 3){
+    ctx.beginPath();
+    ctx.arc(x, y, R + 5.5, -Math.PI/2, -Math.PI/2 + 6.284 * (n.alert/100));
+    ctx.strokeStyle = n.alert > 78 ? '#ff5d5d' : n.alert > 42 ? '#ff9f43' : 'rgba(255,220,150,.85)';
+    ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+  }
+
+  // 角色名牌
+  drawNameTag(n, isPlayer, x, y, R);
+}
+
+// ── 头顶名牌：上司 / 同事姓名 / 你 ──
+function drawNameTag(n, isPlayer, x, y, R){
+  const ui = uiScale();
+  const fs = Math.round(12 * ui);
+  const padX = 7 * ui, padY = 4 * ui;
+  const tagH = fs + padY * 2;
+
+  let text = isPlayer ? '你' : (n.isBoss ? '上司' : n.name);
+  let state = '';
+  if(!isPlayer){
+    if(n.mode === 'chase') state = '!!';
+    else if(n.alert > 78) state = '!';
+    else if(n.alert > 40) state = '?';
+    else if(n.lookT > 0) state = '📱';
+    else if(n.mode === 'pause') state = '💬';
+  }
+  if(state) text += ' ' + state;
+
+  ctx.font = '700 ' + fs + 'px "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif';
+  const tw = ctx.measureText(text).width;
+  const w = tw + padX * 2;
+  const bx = x - w / 2;
+  const by = y - R - 13 * ui - tagH;
+
+  // 连到人物的小引线
+  ctx.beginPath();
+  ctx.moveTo(x, by + tagH + 5 * ui);
+  ctx.lineTo(x, y - R - 2);
+  ctx.strokeStyle = isPlayer ? 'rgba(255,217,138,.42)'
+                 : n.isBoss ? 'rgba(255,93,93,.45)' : hexA(n.color, .38);
+  ctx.lineWidth = 1.2; ctx.stroke();
+
+  let bg, bd, fg;
+  if(isPlayer){ bg = 'rgba(54,41,10,.90)'; bd = 'rgba(255,217,138,.85)'; fg = '#ffe6b0'; }
+  else if(n.isBoss){ bg = 'rgba(58,12,16,.93)'; bd = n.mode === 'chase' ? 'rgba(255,93,93,1)' : 'rgba(255,93,93,.72)'; fg = '#ffc4c4'; }
+  else { bg = 'rgba(11,16,24,.88)'; bd = hexA(n.color, .62); fg = '#dbe7f4'; }
+
+  roundRect(ctx, bx, by, w, tagH, 5 * ui);
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.lineWidth = 1.4; ctx.strokeStyle = bd; ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = fg;
+  ctx.fillText(text, x, by + tagH / 2 + .5);
+}
+
+function drawItems(t){
+  for(const it of items){
+    if(it.taken) continue;
+    const x = it.pos[0]*TILE, y = it.pos[1]*TILE + Math.sin(t*2.2 + it.bob) * 3.5;
+    // 光晕
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const rg = ctx.createRadialGradient(x, y, 2, x, y, 30);
+    rg.addColorStop(0, 'rgba(255,215,140,.34)');
+    rg.addColorStop(1, 'rgba(255,215,140,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, 30, 0, 6.284); ctx.fill();
+    ctx.restore();
+    // 底座
+    ctx.beginPath(); ctx.arc(x, y, 13, 0, 6.284);
+    ctx.fillStyle = 'rgba(24,30,40,.85)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,215,140,.6)'; ctx.lineWidth = 2; ctx.stroke();
+    // 图标
+    ctx.font = '15px system-ui, "Apple Color Emoji", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(it.icon, x, y + 1);
+  }
+}
+
+function drawNoises(){
+  for(const nz of noises){
+    const p = nz.life / nz.max;
+    const x = nz.x*TILE, y = nz.y*TILE;
+    const r = (1 - p) * 62 + 8;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.284);
+    ctx.strokeStyle = 'rgba(160,200,240,' + (p * .55) + ')';
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * .55, 0, 6.284);
+    ctx.strokeStyle = 'rgba(160,200,240,' + (p * .3) + ')';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+}
+
+function drawParticles(dt){
+  for(let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.life -= dt / p.max;
+    if(p.life <= 0){ particles.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= .94; p.vy *= .94;
+    ctx.globalAlpha = clamp(p.life, 0, 1);
+    ctx.beginPath(); ctx.arc(p.x*TILE, p.y*TILE, p.r, 0, 6.284);
+    ctx.fillStyle = p.color; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawFloats(dt){
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(let i = floats.length - 1; i >= 0; i--){
+    const f = floats[i];
+    f.life -= dt / 1.5;
+    if(f.life <= 0){ floats.splice(i, 1); continue; }
+    f.y -= dt * .7;
+    ctx.globalAlpha = clamp(f.life, 0, 1);
+    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,11,17,.9)';
+    ctx.strokeText(f.text, f.x*TILE, f.y*TILE);
+    ctx.fillStyle = f.color; ctx.fillText(f.text, f.x*TILE, f.y*TILE);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function render(dt, t){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, VW, VH);
+  ctx.fillStyle = '#080b11'; ctx.fillRect(0, 0, VW, VH);
+
+  ctx.save();
+  let sx = 0, sy = 0;
+  if(camShake > 0){
+    sx = (Math.random() - .5) * camShake;
+    sy = (Math.random() - .5) * camShake;
+  }
+  ctx.translate(offX + sx, offY + sy);
+  ctx.scale(scale, scale);
+
+  // 静态层
+  ctx.drawImage(staticLayer, 0, 0);
+
+  // 区域名（地面平面图标注）
+  drawZoneLabels();
+
+  // 视野锥
+  drawVision(boss);
+  for(const m of mates) drawVision(m);
+
+  // 噪音
+  drawNoises();
+
+  // 交互提示圈
+  drawInteractHints(t);
+
+  // 物品
+  drawItems(t);
+
+  // 人物（远的先画）
+  const all = [{ e: player, p: true }].concat(mates.map(m => ({ e: m, p: false })), [{ e: boss, p: false }]);
+  all.sort((a, b) => a.e.y - b.e.y);
+  for(const o of all) drawPerson(o.e, o.p);
+
+  // 玩家潜行标识
+  if(player.sneak){
+    ctx.beginPath(); ctx.arc(player.x*TILE, player.y*TILE + 7, 16, 0, 6.284);
+    ctx.strokeStyle = 'rgba(120,220,255,.55)'; ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  drawParticles(dt);
+  drawFloats(dt);
+
+  ctx.restore();
+
+  // 危险暗角（被盯上时）
+  if(vignette > 0.01){
+    const g = ctx.createRadialGradient(VW/2, VH/2, Math.min(VW,VH)*.22, VW/2, VH/2, Math.max(VW,VH)*.62);
+    g.addColorStop(0, 'rgba(255,0,0,0)');
+    g.addColorStop(1, 'rgba(255,20,20,' + (vignette * .5) + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  }
+  // 全局夜色
+  ctx.fillStyle = 'rgba(6,9,15,.13)'; ctx.fillRect(0, 0, VW, VH);
+}
+
+// 菜单背景：只铺静态层
+function renderIdle(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, VW, VH);
+  ctx.fillStyle = '#080b11'; ctx.fillRect(0, 0, VW, VH);
+  ctx.save();
+  ctx.globalAlpha = .5;
+  ctx.translate(offX, offY);
+  ctx.scale(scale, scale);
+  ctx.drawImage(staticLayer, 0, 0);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawInteractHints(t){
+  const pulse = .5 + Math.sin(t * 4) * .5;
+  const targets = [];
+  for(const it of items) if(!it.taken && dist([player.x, player.y], it.pos) < 1.5) targets.push(it.pos);
+  if(!clockedIn && dist([player.x, player.y], CLOCKIN_POS) < 1.5) targets.push(CLOCKIN_POS);
+  if(clockedIn && dist([player.x, player.y], ELEVATOR_POS) < 2.2) targets.push(ELEVATOR_POS);
+  for(const p of targets){
+    ctx.beginPath(); ctx.arc(p[0]*TILE, p[1]*TILE, 22 + pulse * 5, 0, 6.284);
+    ctx.strokeStyle = 'rgba(255,225,150,' + (.32 + pulse * .32) + ')';
+    ctx.lineWidth = 2.4; ctx.stroke();
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,235,180,.92)';
+    ctx.fillText('E', p[0]*TILE, p[1]*TILE - 32);
+  }
+  // 电梯常亮坐标
+  if(clockedIn){
+    ctx.beginPath(); ctx.arc(ELEVATOR_POS[0]*TILE, ELEVATOR_POS[1]*TILE, 24 + pulse*4, 0, 6.284);
+    ctx.strokeStyle = 'rgba(126,240,192,' + (.3 + pulse*.3) + ')'; ctx.lineWidth = 2.4; ctx.stroke();
+  }
+}
+
+/* ═════════════ HUD ═════════════ */
+function updateHUD(){
+  const m = Math.floor(elapsed / 60), s = Math.floor(elapsed % 60);
+  clockEl.textContent = '18:' + String(m).padStart(2, '0');
+  const frac = clamp(timeLeft / totalTime, 0, 1);
+  tfillEl.style.width = (frac * 100) + '%';
+  tbarEl.classList.toggle('low', frac < .28);
+
+  const maxAlert = Math.max(boss.alert, ...mates.map(m => m.alert));
+  afillEl.style.width = clamp(maxAlert, 0, 100) + '%';
+  const st = astEl;
+  if(maxAlert > 78){ st.textContent = '被发现！'; st.className = 'st s3'; afillEl.style.background = 'linear-gradient(90deg,#ff8a5c,#ff3d3d)'; }
+  else if(maxAlert > 42){ st.textContent = '被注意到'; st.className = 'st s2'; afillEl.style.background = 'linear-gradient(90deg,#ffd88a,#ff8a3d)'; }
+  else if(maxAlert > 14){ st.textContent = '有点可疑'; st.className = 'st s1'; afillEl.style.background = 'linear-gradient(90deg,#ffe9b0,#ffc46b)'; }
+  else { st.textContent = '安全'; st.className = 'st'; afillEl.style.background = 'linear-gradient(90deg,#ffd88a,#ff8a3d)'; }
+
+  vignette = maxAlert > 55 ? (maxAlert - 55) / 45 : 0;
+}
+
+/* ═════════════ 主循环 ═════════════ */
+function step(dt){
+  elapsed += dt;
+  timeLeft -= dt;
+  if(timeLeft <= 0){ timeLeft = 0; updateHUD(); render(dt, elapsed); timeUp(); return; }
+
+  updatePlayer(dt);
+  updateBossExtra(dt);
+  for(const n of mates) updateNPC(n, dt);
+  updateNPC(boss, dt);
+  updateNoises(dt);
+
+  // 警戒（顺序：同事先，老板后，便于告密传导）
+  for(const n of mates) if(state === 'playing') updateAlert(n, dt);
+  if(state === 'playing') updateAlert(boss, dt);
+
+  if(player.stamina < .05) player.sprintT = 0;
+
+  if(camShake > 0) camShake = Math.max(0, camShake - dt * 42);
+
+  // 心跳：危险时
+  hbTimer -= dt;
+  const danger = Math.max(boss.alert, ...mates.map(m => m.mode === 'chase' ? 80 : m.alert));
+  if(danger > 55 && hbTimer <= 0){ Sfx.heartbeat(); hbTimer = clamp(1.15 - danger/130, .26, 1.1); }
+}
+let hbTimer = 0;
+
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!lastTs) lastTs = ts;
+  let dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  dt = Math.min(dt, .05);
+
+  if(state === 'playing'){
+    step(dt);
+    updateHUD();
+  }
+  if(staticLayer){
+    if(player) render(dt, ts / 1000);
+    else renderIdle();
+  }
+}
+
+/* ═════════════ 菜单 ═════════════ */
+function showMenu(){
+  state = 'menu';
+  overlay.classList.remove('hide');
+  overlay.innerHTML =
+    '<div class="card">' +
+      '<div class="kicker">STEALTH · 潜行 · OFFICE</div>' +
+      '<h1>下班潜行</h1>' +
+      '<div class="sub">18:00，下班时间到了。<br>老板还在办公室里转悠。<br><b style="color:var(--gold)">别被看见，准时下班。</b></div>' +
+      '<div class="rule">' +
+        '① 摸到自己的工位附近拿 <b>背包</b><br>' +
+        '② 去茶水间取 <b>手机</b>（那里可能有人）<br>' +
+        '③ 溜进老板的玻璃办公室，偷回 <b>工牌</b><br>' +
+        '④ 到门口 <b>打卡</b>，然后 <b>进电梯</b> —— 收工<br>' +
+        '<span style="color:#7f90a4">地面上的淡色字是<b>区域名</b>。每个人头顶都有<b>名牌</b>：红色「<b style="color:#ff9a9a">上司</b>」是老板（外圈有红色虚环），其他颜色的是<b>同事</b>。</span><br>' +
+        '<span style="color:#7f90a4">视野锥扫到你，名牌上的 <b>?</b> 会慢慢变成 <b>!</b>。</span><br>' +
+        '<span style="color:#7f90a4"><b>F</b> 可以把键盘扔出去制造噪音，把人引开。同事发现你会去打小报告。</span>' +
+      '</div>' +
+      '<div class="rule" style="text-align:center;color:#93a5ba">' +
+        '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动　' +
+        '<kbd>Shift</kbd> 潜行（慢但隐蔽）　' +
+        '<kbd>空格</kbd> 冲刺（费体力）　' +
+        '<kbd>E</kbd> 拾取 / 打卡 / 进电梯　<kbd>F</kbd> 丢键盘' +
+      '</div>' +
+      '<div class="diffs">' +
+        Object.keys(DIFF).map(k => {
+          const d = DIFF[k];
+          return '<div class="diff" data-k="' + k + '">' +
+            '<div class="n">' + d.name + '</div>' +
+            '<div class="t">' + d.tag + '</div>' +
+            '<div class="d">' + d.desc + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      '<div class="sub" style="margin-top:18px;font-size:.72rem;opacity:.7">点一个难度开始</div>' +
+    '</div>';
+  overlay.querySelectorAll('.diff').forEach(el => {
+    el.onclick = () => { Sfx.resume(); newGame(el.dataset.k); };
+  });
+}
+
+/* ═════════════ 启动 ═════════════ */
+resize();
+buildStatic();
+showMenu();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
