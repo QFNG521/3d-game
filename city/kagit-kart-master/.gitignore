@@ -1,0 +1,6 @@
+tools/out/
+node_modules/
+.claude/
+*.log
+__pycache__/
+_site/
