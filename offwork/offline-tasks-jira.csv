@@ -1,0 +1,9 @@
+Summary,Issue Type,Description,Priority,Labels,Depends On,Acceptance Criteria,Status
+T1 产出速率配置表,Task,"建立 设施×等级×资源 的每秒产出配置表 ProductionRate，支持热更与非法值校验。字段：facilityId, level, resourceId, perSecond",Highest,"offline-settlement,config",,配置可配可热更；负值/空值有校验并拒绝；系数待原型验证,To Do
+T2 服务端记录 lastActiveAt,Task,登出与心跳超时均写入 player.lastActiveAt = serverNow()，客户端不可篡改,Highest,"offline-settlement,backend",,正常登出与异常退出(心跳超时)均记录；改客户端时间不影响,To Do
+T3 离线时长计算与封顶,Task,"计算 rawSeconds=max(0,serverNow-lastActiveAt)，settledSeconds=min(rawSeconds,maxOfflineSeconds)；时间倒挂按0处理",Highest,"offline-settlement,backend",T2,三档时长(1h/8h/超上限)结算正确；时间倒挂按0并记异常,To Do
+T4 产出计算含容量约束,Task,"按 rate(facility,level,resource)*settledSeconds 计算，单资源产出截断到仓库剩余容量；满仓资源停产出",Highest,"offline-settlement,backend","T1,T3",满仓资源停止产出并标记 cappedByCapacity；其余资源正常,To Do
+T5 结算接口幂等,Task,提供 POST /offline/settle，返回离线秒数/封顶标识/rewards 明细，生成 settlementId；重复调用返回首次结果,Highest,"offline-settlement,backend,api",T4,重复调用不重复发放；有产出/无产出均正确返回,To Do
+T6 客户端收菜结算弹窗,Task,回归弹出结算弹窗，展示离线时长与各资源明细+入库动效；无产出不弹窗,High,"offline-settlement,client",T5,有产出才弹；无产出直接进主界面不打扰,To Do
+T7 异常处理,Task,时间倒挂/重复结算/满仓/事务失败的安全回退与日志；结算事务失败回滚到 OFFLINE 下次重算,Highest,"offline-settlement,backend","T3,T5",异常不崩溃不误发；新号无 lastActiveAt 视为0秒,To Do
+T8 埋点与验证,Task,上报 offline_raw_seconds/封顶率/奖励均值/领取率等埋点，用于验证模块成立,High,"offline-settlement,data",T5,可统计离线时长分布、封顶率、领取率、满仓比例,To Do

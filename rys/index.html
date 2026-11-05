@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>瑞妍熙 RUIYANXI · 美容院管理系统原型</title>
+<style>
+:root{
+  --bg:#FAF8F5; --surface:#FFFFFF; --gold:#C8A87C; --gold-deep:#A8875C;
+  --rose:#E8A9A0; --rose-soft:#F7E9E6; --ink:#33312F; --ink2:#6B6560;
+  --ink3:#A39B92; --line:#ECE6DE; --dark:#2C3632;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+  min-height:100vh; padding-bottom:60px;
+}
+body::before{
+  content:""; position:fixed; top:-260px; right:-180px; width:640px; height:640px;
+  background:radial-gradient(circle,rgba(232,169,160,.20),transparent 68%); pointer-events:none;
+}
+body::after{
+  content:""; position:fixed; bottom:-300px; left:-220px; width:620px; height:620px;
+  background:radial-gradient(circle,rgba(200,168,124,.16),transparent 68%); pointer-events:none;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px;position:relative;z-index:1}
+header{display:flex;align-items:center;justify-content:space-between;padding:34px 0 26px}
+.brand{display:flex;align-items:center;gap:13px}
+.brand-mark{
+  width:44px;height:44px;border-radius:13px;background:linear-gradient(145deg,#3A4A41,#2C3632);
+  display:flex;align-items:center;justify-content:center;color:#E3C9A2;
+  font-size:20px;font-weight:600;letter-spacing:1px;box-shadow:0 6px 18px rgba(44,54,50,.18)
+}
+.brand-cn{font-size:19px;font-weight:600;letter-spacing:4px}
+.brand-en{font-size:10px;color:var(--ink3);letter-spacing:3px;margin-top:3px}
+.header-tag{font-size:12px;color:var(--gold-deep);border:1px solid #E4D4BC;background:#FDF9F2;padding:7px 14px;border-radius:20px;letter-spacing:1px}
+.hero{text-align:center;padding:44px 0 52px}
+.hero .eyebrow{font-size:11px;letter-spacing:5px;color:var(--gold-deep);margin-bottom:20px}
+.hero h1{font-size:42px;font-weight:500;letter-spacing:3px;line-height:1.35}
+.hero h1 em{font-style:normal;color:var(--gold-deep)}
+.hero p{margin-top:18px;font-size:14px;color:var(--ink2);line-height:2;letter-spacing:.5px}
+.divider{width:52px;height:1px;background:var(--gold);margin:26px auto 0}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  box-shadow:0 12px 40px rgba(58,50,42,.06);transition:transform .25s ease,box-shadow .25s ease;
+  display:flex;flex-direction:column
+}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 52px rgba(58,50,42,.12)}
+.visual{height:218px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.visual.admin{background:linear-gradient(135deg,#F3F0EA,#E8E2D8)}
+.visual.member{background:linear-gradient(135deg,#F9EFEC,#F1DED9)}
+/* mini admin mock */
+.mini-admin{
+  width:330px;height:170px;background:#fff;border-radius:9px;box-shadow:0 10px 28px rgba(50,45,40,.16);
+  display:flex;overflow:hidden;transform:rotate(-2deg)
+}
+.mini-side{width:70px;background:var(--dark);padding:12px 0;flex-shrink:0}
+.mini-logo{color:#E3C9A2;font-size:9px;letter-spacing:1.5px;text-align:center;margin-bottom:14px}
+.mini-nav{height:6px;background:rgba(255,255,255,.18);border-radius:3px;margin:9px 12px}
+.mini-nav.on{background:#C8A87C;width:52px}
+.mini-body{flex:1;padding:12px}
+.mini-top{height:7px;width:60px;background:#E7E2DA;border-radius:4px;margin-bottom:11px}
+.mini-kpis{display:flex;gap:6px;margin-bottom:11px}
+.mini-kpi{flex:1;height:34px;background:#FAF8F5;border-radius:5px;border:1px solid #F0EBE3}
+.mini-chart{height:62px;background:linear-gradient(180deg,#FBF8F3,#fff);border:1px solid #F0EBE3;border-radius:5px;display:flex;align-items:flex-end;gap:7px;padding:10px}
+.mini-bar{flex:1;background:linear-gradient(180deg,#D8B98D,#EBD9C0);border-radius:2px 2px 0 0}
+/* mini phone mock */
+.mini-phone{
+  width:104px;height:190px;background:#fff;border-radius:18px;border:5px solid #2C3632;
+  box-shadow:0 10px 28px rgba(50,45,40,.18);overflow:hidden;transform:rotate(4deg);
+  display:flex;flex-direction:column
+}
+.mini-notch{height:8px;display:flex;justify-content:center}
+.mini-notch i{display:block;width:32px;height:5px;background:#2C3632;border-radius:0 0 6px 6px}
+.mini-ph{flex:1;padding:9px 8px;background:#FBF8F5}
+.mini-greeting{height:5px;width:48px;background:#E5DCD2;border-radius:3px;margin-bottom:8px}
+.mini-vip{height:52px;border-radius:8px;background:linear-gradient(120deg,#3A4A41,#5C6A5C);margin-bottom:9px;position:relative;overflow:hidden}
+.mini-vip::after{content:"";position:absolute;width:60px;height:60px;border-radius:50%;background:rgba(227,201,162,.18);right:-18px;top:-18px}
+.mini-quick{display:flex;gap:5px;margin-bottom:9px}
+.mini-quick i{flex:1;height:26px;background:#fff;border-radius:5px;border:1px solid #F1EAE1}
+.mini-proj{height:44px;background:#fff;border-radius:7px;border:1px solid #F1EAE1}
+.mini-tabs{height:24px;background:#fff;border-top:1px solid #F1EAE1;display:flex;align-items:center;justify-content:space-around}
+.mini-tabs i{width:9px;height:9px;border-radius:3px;background:#E5DEE5}
+.mini-tabs i:first-child{background:var(--gold)}
+
+.card-body{padding:26px 28px 28px;flex:1;display:flex;flex-direction:column}
+.card-idx{font-size:10px;letter-spacing:3px;color:var(--gold-deep);margin-bottom:10px}
+.card h2{font-size:21px;font-weight:600;letter-spacing:1.5px}
+.card .desc{font-size:12.5px;color:var(--ink2);line-height:1.9;margin-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:18px 0 22px}
+.chip{font-size:11px;color:var(--ink2);background:#F8F5F0;border:1px solid #EEE7DD;padding:5px 10px;border-radius:6px}
+.btn{
+  margin-top:auto;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(120deg,#33443A,#2C3632);color:#F5EDE2;text-decoration:none;
+  padding:14px 18px;border-radius:11px;font-size:13px;letter-spacing:1px;transition:opacity .2s
+}
+.btn:hover{opacity:.88}
+.btn.member-btn{background:linear-gradient(120deg,#C8A87C,#B08F61)}
+.btn .arrow{font-size:16px}
+.foot{margin-top:44px;text-align:center;font-size:11px;color:var(--ink3);line-height:2.1;letter-spacing:.5px}
+.foot span{color:var(--gold-deep)}
+@media(max-width:820px){
+  .cards{grid-template-columns:1fr}
+  .hero h1{font-size:29px}
+  .wrap{padding:0 18px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">瑞</div>
+      <div>
+        <div class="brand-cn">瑞妍熙</div>
+        <div class="brand-en">RUIYANXI · SKIN &amp; BEAUTY</div>
+      </div>
+    </div>
+    <div class="header-tag">高保真交互原型 · V1.0</div>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">B E A U T Y　M A N A G E M E N T　S Y S T E M</div>
+    <h1>一套系统，<em>两端体验</em></h1>
+    <p>店长与前台的经营管理后台　×　会员掌上的预约与卡包<br>纯静态 HTML 原型，可直接点击体验全部流程</p>
+    <div class="divider"></div>
+  </section>
+
+  <section class="cards">
+    <article class="card">
+      <div class="visual admin">
+        <div class="mini-admin">
+          <div class="mini-side">
+            <div class="mini-logo">瑞妍熙</div>
+            <div class="mini-nav on"></div><div class="mini-nav"></div><div class="mini-nav"></div>
+            <div class="mini-nav"></div><div class="mini-nav"></div><div class="mini-nav"></div>
+          </div>
+          <div class="mini-body">
+            <div class="mini-top"></div>
+            <div class="mini-kpis"><div class="mini-kpi"></div><div class="mini-kpi"></div><div class="mini-kpi"></div><div class="mini-kpi"></div></div>
+            <div class="mini-chart">
+              <div class="mini-bar" style="height:38%"></div><div class="mini-bar" style="height:62%"></div>
+              <div class="mini-bar" style="height:48%"></div><div class="mini-bar" style="height:80%"></div>
+              <div class="mini-bar" style="height:58%"></div><div class="mini-bar" style="height:94%"></div>
+              <div class="mini-bar" style="height:70%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-idx">0 1　/　D E S K T O P</div>
+        <h2>店务管理端</h2>
+        <div class="desc">面向店长与前台的 PC 后台，覆盖从预约到收银、从会员到报表的日常经营全链路。左侧导航可直接切换 8 个模块，弹窗与表单均可操作。</div>
+        <div class="chips">
+          <span class="chip">经营概览</span><span class="chip">预约日历</span><span class="chip">会员档案</span>
+          <span class="chip">卡项管理</span><span class="chip">开单收银</span><span class="chip">员工排班</span>
+          <span class="chip">项目库存</span><span class="chip">营销报表</span>
+        </div>
+        <a class="btn" href="admin/index.html">打开管理端 <span class="arrow">↗</span></a>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="visual member">
+        <div class="mini-phone">
+          <div class="mini-notch"><i></i></div>
+          <div class="mini-ph">
+            <div class="mini-greeting"></div>
+            <div class="mini-vip"></div>
+            <div class="mini-quick"><i></i><i></i><i></i><i></i></div>
+            <div class="mini-proj"></div>
+          </div>
+          <div class="mini-tabs"><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-idx">0 2　/　M O B I L E</div>
+        <h2>会员移动端</h2>
+        <div class="desc">会员掌上的 H5 体验：从选项目、挑技师到定时间完成一次预约，随时查看卡包余次、出示核销码、查消费积分与优惠券。底部 Tab 与页面速览面板均可点击。</div>
+        <div class="chips">
+          <span class="chip">品牌首页</span><span class="chip">在线预约</span><span class="chip">我的卡包</span>
+          <span class="chip">消费积分</span><span class="chip">个人中心</span><span class="chip">我的预约</span>
+        </div>
+        <a class="btn member-btn" href="member/index.html">打开会员端 <span class="arrow">↗</span></a>
+      </div>
+    </article>
+  </section>
+
+  <div class="foot">
+    瑞妍熙 RUIYANXI　·　视觉规范：米白 #FAF8F5 / 香槟金 <span>#C8A87C</span> / 玫瑰粉 <span>#E8A9A0</span> / 深墨绿 #2C3632<br>
+    全部为示例数据 · 纯前端静态原型 · 不依赖任何构建工具或后端服务
+  </div>
+</div>
+</body>
+</html>

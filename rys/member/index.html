@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>瑞妍熙 · 会员移动端</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="stage">
+  <header class="stage-head">
+    <div class="stage-brand">
+      <div class="stage-mark">瑞</div>
+      <div><div class="stage-cn">瑞妍熙</div><div class="stage-en">RUIYANXI · MEMBER APP</div></div>
+    </div>
+    <div class="stage-title">会员移动端 · 高保真交互原型</div>
+    <a class="back-link" href="../index.html">← 返回总览</a>
+  </header>
+
+  <div class="stage-body">
+    <aside class="panel nav-panel">
+      <div class="panel-cap">页面速览</div>
+      <div id="pageNav"></div>
+      <div class="panel-foot">
+        <div class="panel-foot-t">原型说明</div>
+        <p>390 × 844 移动端视口，所有按钮、Tab、分步表单、底部弹层均可真实点击操作。</p>
+      </div>
+    </aside>
+
+    <div class="device-area">
+      <div class="device">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="statusbar">
+            <span id="clock">9:41</span>
+            <span class="sb-icons">
+              <svg viewBox="0 0 20 14" width="17" height="12"><path d="M1 11h2v2H1zM5 8h2v5H5zM9 5h2v8H9zM13 2h2v11h-2z" fill="currentColor"/></svg>
+              <svg viewBox="0 0 20 16" width="16" height="13"><path d="M1 5a13 13 0 0118 0M4 8a9 9 0 0112 0M7 11a5 5 0 016 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="10" cy="14" r="1.2" fill="currentColor"/></svg>
+              <svg viewBox="0 0 26 14" width="24" height="12"><rect x="1" y="2" width="21" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.3"/><rect x="3" y="4" width="16" height="6" rx="1" fill="currentColor"/><path d="M23.5 5.5v3a2 2 0 000-3z" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <div class="app-view" id="view"></div>
+          <nav class="tabbar" id="tabbar"></nav>
+          <div class="home-indicator"></div>
+          <div id="overlay"></div>
+        </div>
+      </div>
+      <div class="device-hint">点击底部 Tab 或左侧「页面速览」切换页面　·　手机内可上下滚动</div>
+    </div>
+
+    <aside class="panel info-panel">
+      <div class="panel-cap">当前页面</div>
+      <div class="info-name" id="infoName">品牌首页</div>
+      <div class="info-desc" id="infoDesc"></div>
+      <div class="panel-cap" style="margin-top:24px">可体验的交互</div>
+      <ul class="info-list" id="infoList"></ul>
+      <div class="panel-cap" style="margin-top:24px">与管理端联动</div>
+      <div class="link-note" id="infoLink"></div>
+      <div class="sync-badge"><span class="sync-dot"></span> 示例数据与管理端同源</div>
+    </aside>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
